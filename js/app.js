@@ -9,6 +9,7 @@ import { initJournal, openJournal, saveJournalEntry, closeJournal, execCmd, appl
 import { initTasks, addReminder, addGenTask, toggleSidePanel, toggleHistoryModal, deleteHistoryItem, toggleIconMenu } from './tasks.js';
 import { initSearch }         from './search.js';
 import { Storage }            from './storage.js';
+import { connectVoice, sendTextMessage, toggleRecording } from './assistant.js';
 
 // ── Boot ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initJournal();
     initTasks();
     initSearch();
+    connectVoice();
 });
 
 // ── Calendar day clicks (delegated) ─────────────────────
@@ -77,3 +79,21 @@ window.removeColor        = removeColor;
 window.toggleToolbarMenu  = toggleToolbarMenu;
 window.saveJournalEntry   = saveJournalEntry;
 window.closeJournal       = closeJournal;
+
+// Assistant
+window.toggleAssistant = function () {
+    const panel = document.getElementById('assistantPanel');
+    const fab   = document.getElementById('assistantFab');
+    panel.classList.toggle('open');
+    fab.classList.toggle('hidden');
+};
+window.handleSend = function () {
+    const input = document.getElementById('chatInput');
+    if (input.value.trim()) {
+        sendTextMessage(input.value.trim());
+        input.value = '';
+    }
+};
+window.handleMic = function () {
+    toggleRecording();
+};
