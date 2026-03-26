@@ -118,22 +118,41 @@ async function startRecording() {
 
         mediaRecorder.onstop = async () => {
             const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            const buffer = await blob.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                // Send in chunks to avoid WS frame limits
-                const chunkSize = 32768;
-                for (let i = 0; i < base64.length; i += chunkSize) {
-                    ws.send(JSON.stringify({
-                        type: 'audio',
-                        data: base64.slice(i, i + chunkSize),
-                    }));
-                }
-                ws.send(JSON.stringify({ type: 'audio_end' }));
-            }
-
             stream.getTracks().forEach(t => t.stop());
+
+            // Send audio via REST (more reliable through Cloudflare Tunnel)
+            try {
+                appendChat('system', 'Transcribiendo...');
+                const formData = new FormData();
+                formData.append('audio', blob, 'recording.webm');
+                const res = await fetch(`${API_BASE}/api/voice/transcribe`, {
+                    method: 'POST',
+                    body: blob,
+                    headers: { 'Content-Type': 'audio/webm' },
+                });
+                const { text } = await res.json();
+                if (text) {
+                    // Remove "Transcribiendo..." message
+                    const chatLog = document.getElementById('chatLog');
+                    const lastMsg = chatLog.lastElementChild;
+                    if (lastMsg && lastMsg.textContent.includes('Transcribiendo')) lastMsg.remove();
+
+                    appendChat('user', text);
+                    // Send transcribed text to AI
+                    const aiRes = await fetch(`${API_BASE}/api/voice/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text }),
+                    });
+                    const data = await aiRes.json();
+                    appendChat('assistant', data.response);
+                    if (data.functions_called?.length) {
+                        data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
+                    }
+                }
+            } catch (err) {
+                appendChat('system', `Error de voz: ${err.message}`);
+            }
         };
 
         mediaRecorder.start(250); // Collect chunks every 250ms

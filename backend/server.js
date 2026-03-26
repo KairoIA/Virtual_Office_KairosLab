@@ -20,6 +20,7 @@ const server = http.createServer(app);
 // ── Middleware ────────────────────────────────────────
 app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json({ limit: '10mb' }));
+app.use(express.raw({ type: 'audio/*', limit: '25mb' }));
 
 // ── Health check ─────────────────────────────────────
 app.get('/health', (req, res) => {
