@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initTasks();
     initSearch();
     connectVoice();
+
+    // Register PWA service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
 });
 
 // ── Calendar day clicks (delegated) ─────────────────────
