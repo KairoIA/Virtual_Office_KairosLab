@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAIROS LAB | Virtual Office</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<canvas id="marketCanvas"></canvas>
+
+<div class="container">
+    <header>
+        <h1>KAIROS LAB <span>// VIRTUAL OFFICE</span></h1>
+        <div class="search-wrapper">
+            <div class="search-box">
+                <span class="search-icon">&#128269;</span>
+                <input type="text" id="searchInput" placeholder="Buscar en la base de datos...">
+            </div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+        <div class="controls">
+            <button class="nav-btn" onclick="changeMonth(-1)">&#9198;</button>
+            <input type="month" id="navMonth" onchange="navigateCalendar()">
+            <button class="nav-btn" onclick="changeMonth(1)">&#9197;</button>
+            <button class="btn-panel" onclick="toggleSidePanel()">&#128188; OFFICE</button>
+            <button class="icon-only-btn" onclick="exportData()" title="Backup">&#128190;</button>
+            <input type="file" id="importFile" style="display:none" onchange="importData(this)">
+            <button class="icon-only-btn" onclick="document.getElementById('importFile').click()" title="Restore">&#128194;</button>
+        </div>
+    </header>
+    <div class="calendar-wrapper">
+        <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+</div>
+
+<!-- JOURNAL MODAL -->
+<div class="modal-overlay" id="journalModal">
+    <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px;">
+            <h2 id="modalTitle" style="margin:0; color:var(--accent); font-family:'Rajdhani',sans-serif; text-shadow: var(--neon-shadow);">DATE_LOG</h2>
+            <button onclick="closeJournal()" style="padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--border); border-radius:4px; font-size:1rem; color:var(--text-muted);">&#10006;</button>
+        </div>
+        <div id="modalTasksArea" class="modal-tasks-area" style="display:none; margin-bottom:15px; background:rgba(210,153,34,0.1); padding:10px; border-radius:6px; border: 1px solid var(--warning);">
+            <div style="color:var(--warning); font-size:0.85rem; font-weight:bold; margin-bottom:8px; font-family:'Rajdhani',sans-serif; text-shadow: 0 0 5px var(--warning);">&#9888;&#65039; DEADLINES:</div>
+            <div id="modalTasksList" style="color: var(--text-main); font-size: 0.9rem; font-family: 'Roboto Mono', monospace;"></div>
+        </div>
+        <div id="modalCompletedArea" class="modal-tasks-area" style="display:none; margin-bottom:15px; background:rgba(22, 163, 74, 0.1); padding:10px; border-radius:6px; border: 1px solid var(--success);">
+            <div style="color:var(--success); font-size:0.85rem; font-weight:bold; margin-bottom:8px; font-family:'Rajdhani',sans-serif; text-shadow: 0 0 5px var(--success);">&#9989; COMPLETED TASKS:</div>
+            <div id="modalCompletedList" style="color: var(--text-main); font-size: 0.9rem; font-family: 'Roboto Mono', monospace;"></div>
+        </div>
+        <div class="rich-toolbar" id="toolbarContainer">
+            <button class="fmt-btn" onmousedown="event.preventDefault(); execCmd('undo')" title="Deshacer">&#8617;</button>
+            <button class="fmt-btn" onmousedown="event.preventDefault(); execCmd('redo')" title="Rehacer">&#8618;</button>
+            <span style="border-left:1px solid var(--border); margin:0 10px; height: 20px;"></span>
+            <button class="fmt-btn" onmousedown="event.preventDefault(); execCmd('bold')" title="Negrita" style="font-weight:bold;">B</button>
+            <button class="fmt-btn" onmousedown="event.preventDefault(); execCmd('italic')" title="Cursiva" style="font-style:italic;">I</button>
+            <button class="fmt-btn" onmousedown="event.preventDefault(); execCmd('underline')" title="Subrayar" style="text-decoration:underline;">U</button>
+            <span style="border-left:1px solid var(--border); margin:0 10px; height: 20px;"></span>
+            <div class="toolbar-dropdown">
+                <button class="toolbar-dropdown-btn" onclick="toggleToolbarMenu('colorMenu')">HIGHLIGHTING</button>
+                <div id="colorMenu" class="toolbar-dropdown-content">
+                    <div class="color-option" style="background:#ffff00;" onmousedown="event.preventDefault(); applyColor('#ffff00')"></div>
+                    <div class="color-option" style="background:#00ff00;" onmousedown="event.preventDefault(); applyColor('#00ff00')"></div>
+                    <div class="color-option" style="background:#00ffff;" onmousedown="event.preventDefault(); applyColor('#00ffff')"></div>
+                    <div class="color-option" style="background:#ff00ff;" onmousedown="event.preventDefault(); applyColor('#ff00ff')"></div>
+                    <div class="color-option" style="background:#ff4500;" onmousedown="event.preventDefault(); applyColor('#ff4500')"></div>
+                    <div class="clear-format-btn" onmousedown="event.preventDefault(); removeColor()" title="Borrar Formato">&#128683;</div>
+                </div>
+            </div>
+            <span style="border-left:1px solid var(--border); margin:0 10px; height: 20px;"></span>
+            <div class="toolbar-dropdown">
+                <button class="toolbar-dropdown-btn" onclick="toggleToolbarMenu('iconMenu')">&#127991;&#65039;</button>
+                <div id="iconMenu" class="toolbar-dropdown-content" style="width: 240px;"></div>
+            </div>
+        </div>
+        <div id="journalInput" contenteditable="true" spellcheck="false"></div>
+        <div style="text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+            <button onclick="closeJournal()" style="background: transparent;">Cancelar</button>
+            <button style="background:var(--success); color:white; border:none; padding:8px 25px; font-weight:bold; font-family:'Rajdhani', sans-serif; box-shadow: 0 0 10px var(--success);" onclick="saveJournalEntry()">GUARDAR LOG</button>
+        </div>
+    </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay" id="historyModal">
+    <div class="modal-content" style="height: 80vh;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px;">
+            <h2 style="margin:0; color:var(--success); font-family:'Rajdhani',sans-serif; text-shadow: 0 0 10px var(--success);">COMPLETED HISTORY</h2>
+            <button onclick="toggleHistoryModal()" style="padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--border); border-radius:4px; font-size:1rem; color:var(--text-muted);">&#10006;</button>
+        </div>
+        <div id="historyList" style="overflow-y:auto; flex-grow:1;"></div>
+    </div>
+</div>
+
+<!-- SIDE PANEL -->
+<div class="side-panel" id="sidePanel">
+    <div id="resizeHandle" class="resize-handle"></div>
+    <div class="panel-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <h3>OFFICE</h3>
+            <button onclick="toggleHistoryModal()" title="Ver Historial" style="background:transparent; border:1px solid var(--border); border-radius:4px; cursor:pointer; color:var(--success); font-size: 1.2rem;">&#128214;</button>
+        </div>
+        <button onclick="toggleSidePanel()" style="background:transparent; border:none; color:var(--text-muted); font-size:1.2rem; cursor:pointer;">&#10006;</button>
+    </div>
+    <div class="panel-scroll">
+        <div class="section-title reminders">&#128276; Reminders & Deadlines</div>
+        <div class="input-group">
+            <input type="text" id="newReminderText" placeholder="Recordatorio..." onkeydown="if(event.key==='Enter') addReminder()">
+            <div class="input-row">
+                <div class="icon-dropdown-wrapper">
+                    <button id="remIconBtn" class="icon-dropdown-btn" onclick="toggleIconMenu('reminderIcons')">&#127991;&#65039;</button>
+                    <div id="reminderIcons" class="icon-dropdown-content"></div>
+                </div>
+                <input type="date" id="newReminderDate">
+                <button class="add-btn" style="background: var(--warning); box-shadow: 0 0 10px var(--warning);" onclick="addReminder()">+</button>
+            </div>
+        </div>
+        <div id="reminderList" style="margin-top: 15px;"></div>
+
+        <div class="section-title tasks">&#128203; General Tasks (Backlog)</div>
+        <div class="input-group">
+            <input type="text" id="newGenTaskText" placeholder="Tarea pendiente..." onkeydown="if(event.key==='Enter') addGenTask()">
+            <div class="input-row">
+                <div class="icon-dropdown-wrapper">
+                    <button id="taskIconBtn" class="icon-dropdown-btn" onclick="toggleIconMenu('taskIcons')">&#127991;&#65039;</button>
+                    <div id="taskIcons" class="icon-dropdown-content"></div>
+                </div>
+                <button class="add-btn" style="background: var(--general); flex-grow:1; box-shadow: 0 0 10px var(--general);" onclick="addGenTask()">+ A&#209;ADIR</button>
+            </div>
+        </div>
+        <div id="genTaskList" style="margin-top: 15px;"></div>
+    </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
