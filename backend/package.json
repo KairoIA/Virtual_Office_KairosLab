@@ -1,0 +1,18 @@
+{
+  "name": "kairos-backend",
+  "version": "1.0.0",
+  "description": "KairosLab Virtual Office — Backend API + Voice Pipeline",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "openai": "^4.72.0",
+    "ws": "^8.18.0"
+  }
+}
