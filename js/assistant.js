@@ -4,8 +4,8 @@
  * Handles: text chat, mic recording, audio playback, WebSocket streaming
  */
 
-const API_BASE = window.KAIROS_API_URL || 'https://fisher-previously-zinc-pockets.trycloudflare.com';
-const WS_BASE  = window.KAIROS_WS_URL  || 'wss://fisher-previously-zinc-pockets.trycloudflare.com';
+const API_BASE = window.KAIROS_API_URL || 'https://acne-monte-sauce-hostels.trycloudflare.com';
+const WS_BASE  = window.KAIROS_WS_URL  || 'wss://acne-monte-sauce-hostels.trycloudflare.com';
 
 let ws = null;
 let mediaRecorder = null;
