@@ -13,6 +13,7 @@ let audioChunks = [];
 let isRecording = false;
 let audioQueue = [];
 let isPlaying = false;
+let voiceMode = false; // Only play audio when user used the mic
 
 // ── WebSocket Connection ─────────────────────────────
 export function connectVoice() {
@@ -36,13 +37,14 @@ export function connectVoice() {
                 appendToken(msg.text);
                 break;
             case 'audio':
-                queueAudio(msg.data);
+                if (voiceMode) queueAudio(msg.data);
                 break;
             case 'function':
                 showFunctionCall(msg.name, msg.result);
                 break;
             case 'done':
                 finalizeResponse();
+                voiceMode = false; // Reset after response complete
                 break;
             case 'error':
                 appendChat('system', `Error: ${msg.message}`);
@@ -66,6 +68,7 @@ export function connectVoice() {
 export function sendTextMessage(text) {
     if (!text.trim()) return;
 
+    voiceMode = false; // Text input = no audio response
     appendChat('user', text);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -135,6 +138,7 @@ async function startRecording() {
 
         mediaRecorder.start(250); // Collect chunks every 250ms
         isRecording = true;
+        voiceMode = true; // Mic used = enable audio response
         updateMicButton(true);
     } catch (err) {
         console.error('[Mic] Error:', err);
