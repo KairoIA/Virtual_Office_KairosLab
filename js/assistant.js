@@ -4,8 +4,8 @@
  * Handles: text chat, mic recording, audio playback, WebSocket streaming
  */
 
-const API_BASE = window.KAIROS_API_URL || 'http://localhost:3001';
-const WS_BASE  = window.KAIROS_WS_URL  || 'ws://localhost:3001';
+const API_BASE = window.KAIROS_API_URL || 'https://fisher-previously-zinc-pockets.trycloudflare.com';
+const WS_BASE  = window.KAIROS_WS_URL  || 'wss://fisher-previously-zinc-pockets.trycloudflare.com';
 
 let ws = null;
 let mediaRecorder = null;
