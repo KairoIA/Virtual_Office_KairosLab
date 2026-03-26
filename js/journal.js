@@ -22,6 +22,7 @@ export function openJournal(day, dateKey) {
     document.getElementById('modalTitle').innerText = `LOG: ${dateKey}`;
     document.getElementById('journalInput').innerHTML = Storage.getJournalEntry(dateKey);
 
+    // Deadlines for this day
     const todayRem = reminders.filter(t => t.dueDate === dateKey && !t.done);
     const areaRem  = document.getElementById('modalTasksArea');
     const listRem  = document.getElementById('modalTasksList');
@@ -37,6 +38,7 @@ export function openJournal(day, dateKey) {
         areaRem.style.display = 'none';
     }
 
+    // Completed for this day
     const todayDone = completed.filter(t => t.date === dateKey);
     const areaDone  = document.getElementById('modalCompletedArea');
     const listDone  = document.getElementById('modalCompletedList');
@@ -66,6 +68,7 @@ export function closeJournal() {
     document.getElementById('journalModal').style.display = 'none';
 }
 
+// ── Rich-text commands ───────────────────────────────────
 export function execCmd(cmd, value = null) {
     document.execCommand(cmd, false, value);
     document.getElementById('journalInput').focus();
@@ -91,6 +94,7 @@ export function toggleToolbarMenu(id) {
     menu.classList.toggle('show');
 }
 
+// ── Internals ────────────────────────────────────────────
 function initToolbarIcons() {
     const iconMenu = document.getElementById('iconMenu');
     if (!iconMenu) return;

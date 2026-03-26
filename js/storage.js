@@ -1,6 +1,6 @@
 /**
  * KAIROS Storage Layer
- * Abstraction over localStorage - will be swapped to Supabase in Phase 2
+ * Abstraction over localStorage — will be swapped to Supabase in Phase 2
  * All data access goes through here so the rest of the app never touches storage directly
  */
 
@@ -13,6 +13,7 @@ const DB_KEYS = {
 
 const Storage = {
 
+    // ── Journal ──────────────────────────────────────────
     getJournal() {
         return JSON.parse(localStorage.getItem(DB_KEYS.JOURNAL) || '{}');
     },
@@ -31,6 +32,7 @@ const Storage = {
         localStorage.setItem(DB_KEYS.JOURNAL, JSON.stringify(entries));
     },
 
+    // ── Reminders ────────────────────────────────────────
     getReminders() {
         return JSON.parse(localStorage.getItem(DB_KEYS.REMINDERS) || '[]');
     },
@@ -46,6 +48,7 @@ const Storage = {
         return list;
     },
 
+    // ── General Tasks ────────────────────────────────────
     getTasks() {
         return JSON.parse(localStorage.getItem(DB_KEYS.GENERAL) || '[]');
     },
@@ -61,6 +64,7 @@ const Storage = {
         return list;
     },
 
+    // ── Completed History ────────────────────────────────
     getCompleted() {
         return JSON.parse(localStorage.getItem(DB_KEYS.COMPLETED) || '[]');
     },
@@ -110,6 +114,7 @@ const Storage = {
         }
     },
 
+    // ── Export / Import ──────────────────────────────────
     exportAll() {
         return {
             j: localStorage.getItem(DB_KEYS.JOURNAL),

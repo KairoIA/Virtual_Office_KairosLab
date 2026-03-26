@@ -32,6 +32,7 @@ function handleSearch() {
     const tasks     = Storage.getTasks();
     const results   = [];
 
+    // Search journal entries
     for (const [key, value] of Object.entries(journal)) {
         const div = document.createElement('div');
         div.innerHTML = value;
@@ -50,6 +51,7 @@ function handleSearch() {
         }
     }
 
+    // Search reminders
     reminders.forEach(x => {
         if (x.text.toLowerCase().includes(q)) {
             const fn = x.dueDate ? () => jumpToDate(x.dueDate) : () => toggleSidePanel(true);
@@ -57,6 +59,7 @@ function handleSearch() {
         }
     });
 
+    // Search tasks
     tasks.forEach(x => {
         if (x.text.toLowerCase().includes(q)) {
             results.push({ type: '\uD83D\uDCCB TASK', date: 'Backlog', text: x.text, action: () => toggleSidePanel(true) });

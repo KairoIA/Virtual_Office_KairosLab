@@ -26,6 +26,7 @@ export function initTasks() {
     });
 }
 
+// ── Reminders ────────────────────────────────────────────
 export function addReminder() {
     const txtEl  = document.getElementById('newReminderText');
     const dateEl = document.getElementById('newReminderDate');
@@ -41,6 +42,7 @@ export function renderReminders() {
     renderList('reminders', 'reminderList');
 }
 
+// ── General Tasks ────────────────────────────────────────
 export function addGenTask() {
     const txtEl = document.getElementById('newGenTaskText');
     if (!txtEl.value) return;
@@ -55,6 +57,7 @@ export function renderGenTasks() {
     renderList('tasks', 'genTaskList');
 }
 
+// ── Complete ─────────────────────────────────────────────
 export function completeItem(dbKey, index) {
     const listId = dbKey === 'reminders' ? 'reminderList' : 'genTaskList';
     const itemEl = document.getElementById(listId).children[index];
@@ -74,7 +77,9 @@ export function completeItem(dbKey, index) {
     }, 500);
 }
 
+// ── Edit / Delete ────────────────────────────────────────
 export function editItem(dbKey, index) {
+    const listId = dbKey === 'reminders' ? 'reminderList' : 'genTaskList';
     const storageKey = dbKey === 'reminders' ? DB_KEYS.REMINDERS : DB_KEYS.GENERAL;
     const list = JSON.parse(localStorage.getItem(storageKey) || '[]');
     const item = list[index];
@@ -108,6 +113,7 @@ export function deleteItem(dbKey, index) {
     }, 400);
 }
 
+// ── History ──────────────────────────────────────────────
 export function renderHistory() {
     const history = Storage.getCompleted();
     history.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -152,12 +158,14 @@ export function toggleHistoryModal() {
     }
 }
 
+// ── Side Panel ───────────────────────────────────────────
 export function toggleSidePanel(forceOpen) {
     const el = document.getElementById('sidePanel');
     if (forceOpen) el.classList.add('open');
     else el.classList.toggle('open');
 }
 
+// ── Internals ────────────────────────────────────────────
 function renderList(type, listId) {
     const isReminder = type === 'reminders';
     const list = isReminder ? Storage.getReminders() : Storage.getTasks();
@@ -205,6 +213,7 @@ function renderList(type, listId) {
         el.appendChild(div);
     });
 
+    // Delegate events
     el.querySelectorAll('.complete-btn').forEach(btn => {
         btn.onclick = () => completeItem(btn.dataset.type, parseInt(btn.dataset.idx));
     });

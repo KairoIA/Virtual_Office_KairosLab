@@ -1,6 +1,6 @@
 /**
- * KAIROS Lab - Virtual Office
- * Main entry point - orchestrates all modules
+ * KAIROS Lab — Virtual Office
+ * Main entry point — orchestrates all modules
  */
 
 import { initMarketCanvas }  from './canvas.js';
@@ -10,6 +10,7 @@ import { initTasks, addReminder, addGenTask, toggleSidePanel, toggleHistoryModal
 import { initSearch }         from './search.js';
 import { Storage }            from './storage.js';
 
+// ── Boot ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     initMarketCanvas();
     initCalendar();
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearch();
 });
 
+// ── Calendar day clicks (delegated) ─────────────────────
 document.addEventListener('click', (e) => {
     const card = e.target.closest('.day-card[data-date-key]');
     if (card) {
@@ -25,6 +27,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ── History delete (delegated) ──────────────────────────
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('.del-hist-btn');
     if (btn && btn.dataset.histIdx !== undefined) {
@@ -32,6 +35,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ── Export / Import ──────────────────────────────────────
 window.exportData = function () {
     const data = Storage.exportAll();
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -56,6 +60,8 @@ window.importData = function (input) {
     if (input.files[0]) reader.readAsText(input.files[0]);
 };
 
+// ── Expose to HTML inline handlers ──────────────────────
+// These bridge the gap between HTML onclick="" attributes and ES modules
 window.changeMonth        = changeMonth;
 window.navigateCalendar   = navigateFromInput;
 window.toggleSidePanel    = toggleSidePanel;
@@ -64,6 +70,7 @@ window.addReminder        = addReminder;
 window.addGenTask         = addGenTask;
 window.toggleIconMenu     = toggleIconMenu;
 
+// Journal toolbar
 window.execCmd            = execCmd;
 window.applyColor         = applyColor;
 window.removeColor        = removeColor;

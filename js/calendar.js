@@ -37,7 +37,7 @@ export function changeMonth(offset) {
         renderCalendar();
         grid.classList.remove(outClass);
         grid.classList.add(inClass);
-        void grid.offsetWidth;
+        void grid.offsetWidth; // force reflow
         grid.classList.remove(inClass);
     }, 300);
 }
@@ -60,13 +60,14 @@ export function renderCalendar() {
     const first = new Date(currentYear, currentMonth, 1);
     const last  = new Date(currentYear, currentMonth + 1, 0);
     let startDay = first.getDay() - 1;
-    if (startDay === -1) startDay = 6;
+    if (startDay === -1) startDay = 6; // Monday-first
 
     const today     = new Date();
     const entries   = Storage.getJournal();
     const reminders = Storage.getReminders();
     const completed = Storage.getCompleted();
 
+    // Empty cells before first day
     for (let i = 0; i < startDay; i++) {
         const empty = document.createElement('div');
         empty.className = 'day-card';
@@ -77,6 +78,7 @@ export function renderCalendar() {
     for (let d = 1; d <= last.getDate(); d++) {
         const k = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
+        // Plain text preview
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = entries[k] || '';
         const plainText = tempDiv.textContent || '';
