@@ -12,16 +12,28 @@ const router = Router();
 
 /**
  * POST /api/voice/transcribe
- * Body: raw audio (multipart/form-data with field "audio")
+ * Body: raw audio bytes
+ * Content-Type: audio/webm, audio/mp4, audio/ogg, etc.
  */
 router.post('/transcribe', async (req, res) => {
     try {
-        if (!req.body || !Buffer.isBuffer(req.body)) {
-            return res.status(400).json({ error: 'Send raw audio in body' });
+        const contentType = req.headers['content-type'] || 'audio/webm';
+        const ext = contentType.includes('mp4') ? 'mp4'
+                  : contentType.includes('ogg') ? 'ogg'
+                  : contentType.includes('wav') ? 'wav'
+                  : 'webm';
+
+        console.log(`[STT] Received audio: ${contentType}, size: ${req.body?.length || 0} bytes, ext: ${ext}`);
+
+        if (!req.body || req.body.length === 0) {
+            return res.status(400).json({ error: 'No audio data received' });
         }
-        const text = await transcribe(req.body);
+
+        const text = await transcribe(req.body, ext);
+        console.log(`[STT] Transcribed: "${text}"`);
         res.json({ text });
     } catch (err) {
+        console.error('[STT] Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -37,15 +49,20 @@ router.post('/chat', async (req, res) => {
 
     const functionsCalled = [];
 
-    const response = await processMessage(
-        message,
-        null, // no streaming for REST
-        (name, args, result) => {
-            functionsCalled.push({ name, args, result });
-        }
-    );
+    try {
+        const response = await processMessage(
+            message,
+            null,
+            (name, args, result) => {
+                functionsCalled.push({ name, args, result });
+            }
+        );
 
-    res.json({ response, functions_called: functionsCalled });
+        res.json({ response, functions_called: functionsCalled });
+    } catch (err) {
+        console.error('[AI] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 /**
@@ -67,6 +84,7 @@ router.post('/tts', async (req, res) => {
             res.end();
         });
     } catch (err) {
+        console.error('[TTS] Error:', err);
         if (!res.headersSent) {
             res.status(500).json({ error: err.message });
         }

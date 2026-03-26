@@ -98,6 +98,17 @@ async function sendTextREST(text) {
 }
 
 // ── Voice Recording ──────────────────────────────────
+let recordingStream = null;
+let recordingMime = 'audio/webm';
+
+function detectMimeType() {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+    for (const t of types) {
+        if (MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+}
+
 export async function toggleRecording() {
     if (isRecording) {
         stopRecording();
@@ -108,64 +119,39 @@ export async function toggleRecording() {
 
 async function startRecording() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        recordingMime = detectMimeType();
+        if (!recordingMime) {
+            appendChat('system', 'Tu navegador no soporta grabacion de audio');
+            return;
+        }
+
+        recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(recordingStream, { mimeType: recordingMime });
         audioChunks = [];
 
         mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) audioChunks.push(e.data);
         };
 
-        mediaRecorder.onstop = async () => {
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            stream.getTracks().forEach(t => t.stop());
-
-            // Send audio via REST (more reliable through Cloudflare Tunnel)
-            try {
-                appendChat('system', 'Transcribiendo...');
-                const formData = new FormData();
-                formData.append('audio', blob, 'recording.webm');
-                const res = await fetch(`${API_BASE}/api/voice/transcribe`, {
-                    method: 'POST',
-                    body: blob,
-                    headers: { 'Content-Type': 'audio/webm' },
-                });
-                const { text } = await res.json();
-                if (text) {
-                    // Remove "Transcribiendo..." message
-                    const chatLog = document.getElementById('chatLog');
-                    const lastMsg = chatLog.lastElementChild;
-                    if (lastMsg && lastMsg.textContent.includes('Transcribiendo')) lastMsg.remove();
-
-                    appendChat('user', text);
-                    // Send transcribed text to AI
-                    const aiRes = await fetch(`${API_BASE}/api/voice/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: text }),
-                    });
-                    const data = await aiRes.json();
-                    appendChat('assistant', data.response);
-                    if (data.functions_called?.length) {
-                        data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
-                    }
-                    // Speak the response via TTS
-                    if (voiceMode && data.response) {
-                        speakText(data.response);
-                    }
-                }
-            } catch (err) {
-                appendChat('system', `Error de voz: ${err.message}`);
-            }
+        mediaRecorder.onstop = () => {
+            recordingStream.getTracks().forEach(t => t.stop());
+            processRecordedAudio();
         };
 
-        mediaRecorder.start(250); // Collect chunks every 250ms
+        mediaRecorder.onerror = (e) => {
+            appendChat('system', `Error de grabacion: ${e.error?.message || 'desconocido'}`);
+            recordingStream.getTracks().forEach(t => t.stop());
+            isRecording = false;
+            updateMicButton(false);
+        };
+
+        mediaRecorder.start(500);
         isRecording = true;
-        voiceMode = true; // Mic used = enable audio response
+        voiceMode = true;
         updateMicButton(true);
+        appendChat('system', 'Grabando... pulsa de nuevo para enviar');
     } catch (err) {
-        console.error('[Mic] Error:', err);
-        appendChat('system', 'No se pudo acceder al micrófono');
+        appendChat('system', `Micro no disponible: ${err.message}`);
     }
 }
 
@@ -175,6 +161,72 @@ function stopRecording() {
     }
     isRecording = false;
     updateMicButton(false);
+}
+
+async function processRecordedAudio() {
+    const ext = recordingMime.includes('mp4') ? 'mp4' : recordingMime.includes('ogg') ? 'ogg' : 'webm';
+    const blob = new Blob(audioChunks, { type: recordingMime });
+
+    if (blob.size < 1000) {
+        appendChat('system', 'Audio demasiado corto, intenta de nuevo');
+        return;
+    }
+
+    // Remove "Grabando..." message
+    const chatLog = document.getElementById('chatLog');
+    const msgs = chatLog.querySelectorAll('.chat-system');
+    msgs.forEach(m => { if (m.textContent.includes('Grabando')) m.remove(); });
+
+    appendChat('system', 'Transcribiendo...');
+
+    try {
+        // Send audio to Whisper via backend
+        const res = await fetch(`${API_BASE}/api/voice/transcribe`, {
+            method: 'POST',
+            body: blob,
+            headers: { 'Content-Type': recordingMime },
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+
+        const { text } = await res.json();
+
+        // Remove "Transcribiendo..."
+        const sysMsgs = chatLog.querySelectorAll('.chat-system');
+        sysMsgs.forEach(m => { if (m.textContent.includes('Transcribiendo')) m.remove(); });
+
+        if (!text || !text.trim()) {
+            appendChat('system', 'No se detecto voz, intenta de nuevo');
+            return;
+        }
+
+        appendChat('user', text);
+
+        // Send to AI
+        const aiRes = await fetch(`${API_BASE}/api/voice/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text }),
+        });
+        const data = await aiRes.json();
+        appendChat('assistant', data.response);
+
+        if (data.functions_called?.length) {
+            data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
+        }
+
+        // Speak the response
+        if (voiceMode && data.response) {
+            speakText(data.response);
+        }
+    } catch (err) {
+        const sysMsgs = chatLog.querySelectorAll('.chat-system');
+        sysMsgs.forEach(m => { if (m.textContent.includes('Transcribiendo')) m.remove(); });
+        appendChat('system', `Error: ${err.message}`);
+    }
 }
 
 // ── Speak via REST TTS ───────────────────────────────
