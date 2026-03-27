@@ -1,85 +1,32 @@
 /**
  * KAIROS Assistant Module
- * Chat + Voice interface connecting to the backend AI
- * Handles: text chat, mic recording, audio playback, WebSocket streaming
+ * Chat + Voice interface — REST only (reliable through Cloudflare Tunnel)
  */
 
 const API_BASE = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
-const WS_BASE  = window.KAIROS_WS_URL  || 'wss://www.kairoslaboffice.trade';
 
-let ws = null;
 let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
-let audioQueue = [];
-let isPlaying = false;
-let voiceMode = false; // Only play audio when user used the mic
+let voiceMode = false;
+let recordingStream = null;
+let recordingMime = 'audio/webm';
 
-// ── WebSocket Connection ─────────────────────────────
+// ── Init ─────────────────────────────────────────────
 export function connectVoice() {
-    if (ws && ws.readyState === WebSocket.OPEN) return;
-
-    ws = new WebSocket(`${WS_BASE}/ws/voice`);
-
-    ws.onopen = () => {
-        console.log('[Kaira] Voice connected');
-        updateStatus('connected');
-    };
-
-    ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-
-        switch (msg.type) {
-            case 'transcript':
-                appendChat('user', msg.text);
-                break;
-            case 'token':
-                appendToken(msg.text);
-                break;
-            case 'audio':
-                if (voiceMode) queueAudio(msg.data);
-                break;
-            case 'function':
-                showFunctionCall(msg.name, msg.result);
-                break;
-            case 'done':
-                finalizeResponse();
-                voiceMode = false; // Reset after response complete
-                break;
-            case 'error':
-                appendChat('system', `Error: ${msg.message}`);
-                break;
-        }
-    };
-
-    ws.onclose = () => {
-        console.log('[Kaira] Voice disconnected');
-        updateStatus('disconnected');
-        // Auto-reconnect after 3s
-        setTimeout(connectVoice, 3000);
-    };
-
-    ws.onerror = (err) => {
-        console.error('[Kaira] WS error:', err);
-    };
+    // No WebSocket — using REST only for reliability
+    updateStatus('connected');
 }
 
 // ── Text Chat ────────────────────────────────────────
 export function sendTextMessage(text) {
     if (!text.trim()) return;
-
-    voiceMode = false; // Text input = no audio response
+    voiceMode = false;
     appendChat('user', text);
-
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'text', message: text }));
-    } else {
-        // Fallback to REST
-        sendTextREST(text);
-    }
+    sendToAI(text);
 }
 
-async function sendTextREST(text) {
+async function sendToAI(text) {
     try {
         const res = await fetch(`${API_BASE}/api/voice/chat`, {
             method: 'POST',
@@ -92,17 +39,19 @@ async function sendTextREST(text) {
         if (data.functions_called?.length) {
             data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
         }
+
+        // Speak only if mic was used
+        if (voiceMode && data.response) {
+            speakText(data.response);
+        }
     } catch (err) {
-        appendChat('system', `Connection error: ${err.message}`);
+        appendChat('system', `Error de conexion: ${err.message}`);
     }
 }
 
 // ── Voice Recording ──────────────────────────────────
-let recordingStream = null;
-let recordingMime = 'audio/webm';
-
 function detectMimeType() {
-    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
     for (const t of types) {
         if (MediaRecorder.isTypeSupported(t)) return t;
     }
@@ -149,7 +98,6 @@ async function startRecording() {
         isRecording = true;
         voiceMode = true;
         updateMicButton(true);
-        appendChat('system', 'Grabando... pulsa de nuevo para enviar');
     } catch (err) {
         appendChat('system', `Micro no disponible: ${err.message}`);
     }
@@ -164,7 +112,6 @@ function stopRecording() {
 }
 
 async function processRecordedAudio() {
-    const ext = recordingMime.includes('mp4') ? 'mp4' : recordingMime.includes('ogg') ? 'ogg' : 'webm';
     const blob = new Blob(audioChunks, { type: recordingMime });
 
     if (blob.size < 1000) {
@@ -172,15 +119,9 @@ async function processRecordedAudio() {
         return;
     }
 
-    // Remove "Grabando..." message
-    const chatLog = document.getElementById('chatLog');
-    const msgs = chatLog.querySelectorAll('.chat-system');
-    msgs.forEach(m => { if (m.textContent.includes('Grabando')) m.remove(); });
-
     appendChat('system', 'Transcribiendo...');
 
     try {
-        // Send audio to Whisper via backend
         const res = await fetch(`${API_BASE}/api/voice/transcribe`, {
             method: 'POST',
             body: blob,
@@ -193,10 +134,7 @@ async function processRecordedAudio() {
         }
 
         const { text } = await res.json();
-
-        // Remove "Transcribiendo..."
-        const sysMsgs = chatLog.querySelectorAll('.chat-system');
-        sysMsgs.forEach(m => { if (m.textContent.includes('Transcribiendo')) m.remove(); });
+        removeSystemMessages('Transcribiendo');
 
         if (!text || !text.trim()) {
             appendChat('system', 'No se detecto voz, intenta de nuevo');
@@ -204,32 +142,14 @@ async function processRecordedAudio() {
         }
 
         appendChat('user', text);
-
-        // Send to AI
-        const aiRes = await fetch(`${API_BASE}/api/voice/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text }),
-        });
-        const data = await aiRes.json();
-        appendChat('assistant', data.response);
-
-        if (data.functions_called?.length) {
-            data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
-        }
-
-        // Speak the response
-        if (voiceMode && data.response) {
-            speakText(data.response);
-        }
+        await sendToAI(text);
     } catch (err) {
-        const sysMsgs = chatLog.querySelectorAll('.chat-system');
-        sysMsgs.forEach(m => { if (m.textContent.includes('Transcribiendo')) m.remove(); });
+        removeSystemMessages('Transcribiendo');
         appendChat('system', `Error: ${err.message}`);
     }
 }
 
-// ── Speak via REST TTS ───────────────────────────────
+// ── Speak via TTS ────────────────────────────────────
 async function speakText(text) {
     try {
         const res = await fetch(`${API_BASE}/api/voice/tts`, {
@@ -248,42 +168,6 @@ async function speakText(text) {
     }
 }
 
-// ── Audio Playback (WS TTS) ─────────────────────────
-function queueAudio(base64Data) {
-    const binary = atob(base64Data);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    audioQueue.push(bytes.buffer);
-
-    if (!isPlaying) playNext();
-}
-
-async function playNext() {
-    if (audioQueue.length === 0) {
-        isPlaying = false;
-        return;
-    }
-    isPlaying = true;
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const buffer = audioQueue.shift();
-
-    try {
-        const audioBuffer = await audioCtx.decodeAudioData(buffer);
-        const source = audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioCtx.destination);
-        source.onended = () => {
-            audioCtx.close();
-            playNext();
-        };
-        source.start(0);
-    } catch {
-        // If decode fails, try next chunk
-        playNext();
-    }
-}
-
 // ── UI Helpers ───────────────────────────────────────
 let currentAssistantMsg = null;
 
@@ -293,11 +177,10 @@ function appendChat(role, text) {
 
     const div = document.createElement('div');
     div.className = `chat-msg chat-${role}`;
-    div.innerHTML = `<span class="chat-role">${role === 'user' ? 'Tú' : role === 'assistant' ? 'Kaira' : 'Sistema'}:</span> ${text}`;
+    const label = role === 'user' ? 'Tu' : role === 'assistant' ? 'Kaira' : 'Sistema';
+    div.innerHTML = `<span class="chat-role">${label}:</span> ${text}`;
     chatLog.appendChild(div);
     chatLog.scrollTop = chatLog.scrollHeight;
-
-    if (role === 'assistant') currentAssistantMsg = null;
 }
 
 function appendToken(token) {
@@ -331,6 +214,14 @@ function showFunctionCall(name, result) {
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function removeSystemMessages(containing) {
+    const chatLog = document.getElementById('chatLog');
+    if (!chatLog) return;
+    chatLog.querySelectorAll('.chat-system').forEach(m => {
+        if (m.textContent.includes(containing)) m.remove();
+    });
+}
+
 function updateStatus(status) {
     const indicator = document.getElementById('voiceStatus');
     if (indicator) {
@@ -343,6 +234,6 @@ function updateMicButton(recording) {
     const btn = document.getElementById('micButton');
     if (btn) {
         btn.classList.toggle('recording', recording);
-        btn.title = recording ? 'Detener grabación' : 'Hablar con Kaira';
+        btn.title = recording ? 'Detener grabacion' : 'Hablar con Kaira';
     }
 }
