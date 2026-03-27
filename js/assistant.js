@@ -5,6 +5,10 @@
 
 const API_BASE = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
 
+// Callback to refresh UI after Kaira modifies data
+let onDataChanged = null;
+export function setOnDataChanged(fn) { onDataChanged = fn; }
+
 let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
@@ -42,6 +46,7 @@ async function sendToAI(text) {
             appendChat('assistant', data.response);
             if (data.functions_called?.length) {
                 data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
+                if (onDataChanged) onDataChanged();
             }
         } catch (err) {
             appendChat('system', `Error de conexion: ${err.message}`);
@@ -60,9 +65,10 @@ async function sendToAIStreaming(text) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let sentenceBuffer = '';
-        let fullResponse = '';
+        let sentences = []; // Collect sentences with their text
         const SENTENCE_END = /[.!?;]\s*$/;
 
+        // Phase 1: Collect all tokens, buffer sentences, start TTS fetching early
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -79,31 +85,101 @@ async function sendToAIStreaming(text) {
                     const msg = JSON.parse(json);
 
                     if (msg.type === 'token') {
-                        appendToken(msg.text);
                         sentenceBuffer += msg.text;
-                        fullResponse += msg.text;
 
-                        // When sentence complete, send to TTS queue
-                        if (SENTENCE_END.test(sentenceBuffer) && sentenceBuffer.trim().length > 15) {
-                            speakText(sentenceBuffer.trim());
+                        if (SENTENCE_END.test(sentenceBuffer) && sentenceBuffer.trim().length > 10) {
+                            const sentence = sentenceBuffer.trim();
                             sentenceBuffer = '';
+                            // Start fetching TTS immediately (don't wait)
+                            const audioPromise = fetchTTSAudio(sentence);
+                            sentences.push({ text: sentence, audioPromise });
                         }
                     } else if (msg.type === 'function') {
                         showFunctionCall(msg.name, msg.result);
+                        if (onDataChanged) onDataChanged();
                     } else if (msg.type === 'done') {
-                        // Speak remaining text
                         if (sentenceBuffer.trim()) {
-                            speakText(sentenceBuffer.trim());
+                            const sentence = sentenceBuffer.trim();
+                            const audioPromise = fetchTTSAudio(sentence);
+                            sentences.push({ text: sentence, audioPromise });
                             sentenceBuffer = '';
                         }
-                        finalizeResponse();
                     }
                 } catch {}
             }
         }
+
+        // Phase 2: Play each sentence — typewriter text + audio simultaneously
+        for (const s of sentences) {
+            const audioUrl = await s.audioPromise;
+            if (audioUrl) {
+                // Play audio and typewriter text at the same time
+                await playSentenceWithText(s.text, audioUrl);
+            } else {
+                // No audio, just show text
+                await typewriterText(s.text);
+            }
+        }
+
+        finalizeResponse();
     } catch (err) {
         appendChat('system', `Error de conexion: ${err.message}`);
     }
+}
+
+async function fetchTTSAudio(text) {
+    try {
+        const res = await fetch(`${API_BASE}/api/voice/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+        });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+    } catch {
+        return null;
+    }
+}
+
+function playSentenceWithText(text, audioUrl) {
+    return new Promise((resolve) => {
+        const audio = new Audio(audioUrl);
+
+        // Start typewriter when audio starts playing
+        audio.onplay = () => {
+            const duration = audio.duration || 3;
+            const msPerChar = (duration * 1000) / text.length;
+            typewriterText(text, msPerChar);
+        };
+
+        audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+        };
+        audio.onerror = () => {
+            URL.revokeObjectURL(audioUrl);
+            typewriterText(text).then(resolve);
+        };
+        audio.play().catch(() => {
+            typewriterText(text).then(resolve);
+        });
+    });
+}
+
+function typewriterText(text, msPerChar = 30) {
+    return new Promise((resolve) => {
+        let i = 0;
+        const interval = setInterval(() => {
+            if (i < text.length) {
+                appendToken(text[i]);
+                i++;
+            } else {
+                clearInterval(interval);
+                resolve();
+            }
+        }, msPerChar);
+    });
 }
 
 // ── Voice Recording ──────────────────────────────────

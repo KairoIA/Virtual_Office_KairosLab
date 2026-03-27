@@ -9,7 +9,8 @@ import { initJournal, openJournal, saveJournalEntry, closeJournal, execCmd, appl
 import { initTasks, addReminder, addGenTask, toggleSidePanel, toggleHistoryModal, deleteHistoryItem, toggleIconMenu } from './tasks.js';
 import { initSearch }         from './search.js';
 import { Storage }            from './storage.js';
-import { connectVoice, sendTextMessage, toggleRecording } from './assistant.js';
+import { connectVoice, sendTextMessage, toggleRecording, setOnDataChanged } from './assistant.js';
+import { renderReminders, renderGenTasks } from './tasks.js';
 
 // ── Boot ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -23,6 +24,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTasks();
     initSearch();
     connectVoice();
+
+    // When Kaira modifies data, refresh UI in real-time
+    setOnDataChanged(async () => {
+        await Storage.refresh();
+        renderCalendar();
+        renderReminders();
+        renderGenTasks();
+    });
 
     // Register PWA service worker
     if ('serviceWorker' in navigator) {
