@@ -12,8 +12,12 @@ import { Storage }            from './storage.js';
 import { connectVoice, sendTextMessage, toggleRecording } from './assistant.js';
 
 // ── Boot ─────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initMarketCanvas();
+
+    // Load data from API before rendering
+    await Storage.init();
+
     initCalendar();
     initJournal();
     initTasks();

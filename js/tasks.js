@@ -64,12 +64,10 @@ export function completeItem(dbKey, index) {
     if (itemEl) itemEl.classList.add('dissolve-out');
 
     setTimeout(() => {
-        const storageKey = dbKey === 'reminders' ? DB_KEYS.REMINDERS : DB_KEYS.GENERAL;
-        const list = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        const item = list.splice(index, 1)[0];
-        localStorage.setItem(storageKey, JSON.stringify(list));
-
-        Storage.addCompleted(item, dbKey === 'reminders' ? 'reminder' : 'task');
+        const item = Storage.removeItem(dbKey, index);
+        if (item) {
+            Storage.addCompleted(item, dbKey === 'reminders' ? 'reminder' : 'task');
+        }
 
         if (dbKey === 'reminders') renderReminders();
         else renderGenTasks();
