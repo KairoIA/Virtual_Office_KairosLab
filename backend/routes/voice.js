@@ -66,6 +66,38 @@ router.post('/chat', async (req, res) => {
 });
 
 /**
+ * POST /api/voice/chat-stream
+ * Body: { message: "text" }
+ * Returns: SSE stream of tokens and function calls
+ * Events: token, function, done
+ */
+router.post('/chat-stream', async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    try {
+        await processMessage(
+            message,
+            (token) => {
+                res.write(`data: ${JSON.stringify({ type: 'token', text: token })}\n\n`);
+            },
+            (name, args, result) => {
+                res.write(`data: ${JSON.stringify({ type: 'function', name, args, result })}\n\n`);
+            }
+        );
+        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+    }
+    res.end();
+});
+
+/**
  * POST /api/voice/tts
  * Body: { text: "text to speak" }
  * Returns: audio/mpeg stream

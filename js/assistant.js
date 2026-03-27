@@ -27,22 +27,79 @@ export function sendTextMessage(text) {
 }
 
 async function sendToAI(text) {
+    if (voiceMode) {
+        // Streaming mode — tokens appear as Kaira speaks
+        await sendToAIStreaming(text);
+    } else {
+        // Simple REST for text chat
+        try {
+            const res = await fetch(`${API_BASE}/api/voice/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text }),
+            });
+            const data = await res.json();
+            appendChat('assistant', data.response);
+            if (data.functions_called?.length) {
+                data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
+            }
+        } catch (err) {
+            appendChat('system', `Error de conexion: ${err.message}`);
+        }
+    }
+}
+
+async function sendToAIStreaming(text) {
     try {
-        const res = await fetch(`${API_BASE}/api/voice/chat`, {
+        const res = await fetch(`${API_BASE}/api/voice/chat-stream`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text }),
         });
-        const data = await res.json();
-        appendChat('assistant', data.response);
 
-        if (data.functions_called?.length) {
-            data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
-        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let sentenceBuffer = '';
+        let ttsQueue = Promise.resolve();
+        const SENTENCE_END = /[.!?;:]\s*$/;
 
-        // Speak only if mic was used
-        if (voiceMode && data.response) {
-            speakText(data.response);
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const json = line.slice(6);
+                if (!json) continue;
+
+                try {
+                    const msg = JSON.parse(json);
+
+                    if (msg.type === 'token') {
+                        appendToken(msg.text);
+                        sentenceBuffer += msg.text;
+
+                        // When sentence complete, send to TTS
+                        if (SENTENCE_END.test(sentenceBuffer) && sentenceBuffer.trim().length > 15) {
+                            const sentence = sentenceBuffer.trim();
+                            sentenceBuffer = '';
+                            ttsQueue = ttsQueue.then(() => speakText(sentence));
+                        }
+                    } else if (msg.type === 'function') {
+                        showFunctionCall(msg.name, msg.result);
+                    } else if (msg.type === 'done') {
+                        // Speak remaining text
+                        if (sentenceBuffer.trim()) {
+                            ttsQueue = ttsQueue.then(() => speakText(sentenceBuffer.trim()));
+                            sentenceBuffer = '';
+                        }
+                        finalizeResponse();
+                    }
+                } catch {}
+            }
         }
     } catch (err) {
         appendChat('system', `Error de conexion: ${err.message}`);
