@@ -60,8 +60,8 @@ async function sendToAIStreaming(text) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let sentenceBuffer = '';
-        let ttsQueue = Promise.resolve();
-        const SENTENCE_END = /[.!?;:]\s*$/;
+        let fullResponse = '';
+        const SENTENCE_END = /[.!?;]\s*$/;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -81,19 +81,19 @@ async function sendToAIStreaming(text) {
                     if (msg.type === 'token') {
                         appendToken(msg.text);
                         sentenceBuffer += msg.text;
+                        fullResponse += msg.text;
 
-                        // When sentence complete, send to TTS
+                        // When sentence complete, send to TTS queue
                         if (SENTENCE_END.test(sentenceBuffer) && sentenceBuffer.trim().length > 15) {
-                            const sentence = sentenceBuffer.trim();
+                            speakText(sentenceBuffer.trim());
                             sentenceBuffer = '';
-                            ttsQueue = ttsQueue.then(() => speakText(sentence));
                         }
                     } else if (msg.type === 'function') {
                         showFunctionCall(msg.name, msg.result);
                     } else if (msg.type === 'done') {
                         // Speak remaining text
                         if (sentenceBuffer.trim()) {
-                            ttsQueue = ttsQueue.then(() => speakText(sentenceBuffer.trim()));
+                            speakText(sentenceBuffer.trim());
                             sentenceBuffer = '';
                         }
                         finalizeResponse();
@@ -206,8 +206,12 @@ async function processRecordedAudio() {
     }
 }
 
-// ── Speak via TTS ────────────────────────────────────
+// ── Speak via TTS (sequential queue) ─────────────────
+let ttsPlaying = false;
+let ttsPendingQueue = [];
+
 async function speakText(text) {
+    if (!text || !text.trim()) return;
     try {
         const res = await fetch(`${API_BASE}/api/voice/tts`, {
             method: 'POST',
@@ -217,12 +221,24 @@ async function speakText(text) {
         if (!res.ok) return;
         const audioBlob = await res.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.onended = () => URL.revokeObjectURL(audioUrl);
-        audio.play();
+        ttsPendingQueue.push(audioUrl);
+        if (!ttsPlaying) playTTSQueue();
     } catch (err) {
         console.error('[TTS] Error:', err.message);
     }
+}
+
+function playTTSQueue() {
+    if (ttsPendingQueue.length === 0) {
+        ttsPlaying = false;
+        return;
+    }
+    ttsPlaying = true;
+    const url = ttsPendingQueue.shift();
+    const audio = new Audio(url);
+    audio.onended = () => { URL.revokeObjectURL(url); playTTSQueue(); };
+    audio.onerror = () => { URL.revokeObjectURL(url); playTTSQueue(); };
+    audio.play().catch(() => playTTSQueue());
 }
 
 // ── UI Helpers ───────────────────────────────────────
