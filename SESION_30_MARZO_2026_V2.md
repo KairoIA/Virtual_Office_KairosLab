@@ -165,10 +165,65 @@ Nuevas respecto a V8:
 
 ---
 
+### 12. Git push + deploy script
+- `deploy.sh`: ejecuta smoke test → git add → commit → push. Uso: `bash deploy.sh "mensaje"`
+- `.gitignore` actualizado: excluye `.env`, `*.mp3`, `*.wav`, `separate_voices.py` (contenia HF token)
+- Repo actualizado: github.com/KairoIA/Virtual_Office_KairosLab (commit 57b5b0a)
+- **Archivos:** `deploy.sh` (nuevo), `.gitignore`
+
+### 13. Smoke test
+- `backend/smoke-test.js`: testea 13 endpoints GET + 1 ciclo CRUD (POST+DELETE tasks)
+- Se ejecuta automaticamente antes de cada deploy
+- Exit code 0 si todo pasa, 1 si falla algo
+- **Archivos:** `backend/smoke-test.js` (nuevo)
+
+### 14. Analytics reales en pestaña Stats
+- Backend `GET /api/stats`: endpoint agregado que calcula todo en una query
+  - Completados por dia (7d), por dominio, comparacion vs semana anterior
+  - Day plan ratio (done/total), rendimiento por slot
+  - Horas por dominio (basado en slots completados × duracion)
+  - Streak de dias consecutivos productivos (ultimos 30d)
+  - Tasks pendientes por categoria, proyectos por estado
+- Frontend reescrito con charts CSS:
+  - Grafico de barras vertical: completados por dia (7d) con highlight en hoy
+  - Barras horizontales: horas por dominio con colores
+  - 4 cards de rendimiento por bloque (morning/afternoon/evening/night %)
+  - Barras: tasks pendientes por categoria, proyectos por estado
+  - Stat cards: completados (+% delta), streak, plan ratio, pending tasks, proyectos activos, Kaira AI cost
+- Semana empieza en Monday (Mon-Tue-Wed-Thu-Fri-Sat-Sun)
+- **Archivos:** `backend/routes/stats.js` (nuevo), `backend/server.js`, `js/stats.js` (reescrito), `index.html`, `css/main.css`
+
+### 15. Kaira FAB draggable + panel redimensionable
+- **Laptop:** click+mantener+arrastrar mueve la pompa. Click corto (<10px) abre chat. Autofocus en input al abrir.
+- **Movil:** tap abre chat (sin abrir teclado). Hold+arrastrar mueve pompa. Sin resize handle.
+- Panel redimensionable en laptop: handle diagonal en esquina superior izquierda (↖). Arrastra para cambiar width+height.
+- X cierra siempre (forceClose).
+- Teclado movil: `visualViewport` API reposiciona panel encima del teclado cuando se abre.
+- **Archivos:** `js/app.js`, `css/assistant.css`, `index.html`
+
+### 16. PWA icon fix
+- Iconos regenerados desde `logo_web_original.png` (circular, sin esquinas blancas)
+- Versiones maskable con padding 72% sobre fondo negro `#050505`
+- Versiones regular al 92% sobre fondo negro
+- Manifest actualizado: `any` y `maskable` apuntan a archivos separados
+- **Archivos:** `manifest.json`, `assets/icon-192.png`, `assets/icon-512.png`, `assets/icon-192-maskable.png` (nuevo), `assets/icon-512-maskable.png` (nuevo)
+
+---
+
+## ARCHIVOS NUEVOS (adicionales)
+- `deploy.sh` — Script de deploy (smoke test + git push)
+- `backend/smoke-test.js` — Health check de 14 endpoints
+- `backend/routes/stats.js` — API analytics agregada
+
+## ARCHIVOS MODIFICADOS (adicionales)
+- `.gitignore` — Excluye audio, secrets
+- `backend/server.js` — Import + mount stats router
+
+---
+
 ## PENDIENTE
 - Habit tracker
 - Quick capture widget
 - MT5 dashboard integration
 - Polymarket tracker
 - Push notifications (PWA)
-- Git push al repo

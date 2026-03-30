@@ -119,6 +119,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         tab.addEventListener('click', () => switchView(tab.dataset.view));
     });
 
+    // Draggable Kaira FAB + Resizable panel + Mobile keyboard fix
+    initDraggableFab();
+    initResizablePanel();
+    initMobileKeyboardFix();
+
     // When Kaira modifies data, refresh current view
     setOnDataChanged(async () => {
         await Storage.refresh();
@@ -152,6 +157,137 @@ document.addEventListener('click', (e) => {
     const btn = e.target.closest('.del-hist-btn');
     if (btn && btn.dataset.histIdx !== undefined) deleteHistoryItem(parseInt(btn.dataset.histIdx));
 });
+
+// ── Draggable Kaira FAB ─────────────────────────────────
+function initDraggableFab() {
+    const fab = document.getElementById('assistantFab');
+    if (!fab) return;
+
+    let startX, startY, offsetX, offsetY;
+    let totalDist = 0;
+    let isDown = false;
+    const DRAG_THRESHOLD = 10;
+
+    function pos(e) { return e.touches ? e.touches[0] : e; }
+
+    function onDown(e) {
+        const p = pos(e);
+        const r = fab.getBoundingClientRect();
+        startX = p.clientX;
+        startY = p.clientY;
+        offsetX = p.clientX - r.left;
+        offsetY = p.clientY - r.top;
+        totalDist = 0;
+        isDown = true;
+    }
+
+    function onMove(e) {
+        if (!isDown) return;
+        const p = pos(e);
+        totalDist = Math.abs(p.clientX - startX) + Math.abs(p.clientY - startY);
+        if (totalDist < DRAG_THRESHOLD) return;
+        fab.classList.add('dragging');
+        const mX = window.innerWidth - fab.offsetWidth;
+        const mY = window.innerHeight - fab.offsetHeight;
+        fab.style.left = Math.max(0, Math.min(p.clientX - offsetX, mX)) + 'px';
+        fab.style.top = Math.max(0, Math.min(p.clientY - offsetY, mY)) + 'px';
+        fab.style.right = 'auto';
+        fab.style.bottom = 'auto';
+        if (e.cancelable) e.preventDefault();
+    }
+
+    function onUp() {
+        if (!isDown) return;
+        isDown = false;
+        fab.classList.remove('dragging');
+        if (totalDist < DRAG_THRESHOLD) {
+            toggleAssistant();
+        }
+    }
+
+    // Desktop
+    fab.addEventListener('mousedown', e => { onDown(e); e.preventDefault(); });
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    // Mobile
+    fab.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+}
+
+// ── Resizable Kaira Panel (top-left diagonal) ────────────
+function initResizablePanel() {
+    const panel = document.getElementById('assistantPanel');
+    if (!panel) return;
+
+    const handle = document.createElement('div');
+    handle.className = 'assistant-resize-handle';
+    panel.appendChild(handle);
+
+    let startX, startY, startW, startH;
+    let active = false;
+
+    function pos(e) { return e.touches ? e.touches[0] : e; }
+
+    function onDown(e) {
+        const p = pos(e);
+        startX = p.clientX;
+        startY = p.clientY;
+        startW = panel.offsetWidth;
+        startH = panel.offsetHeight;
+        active = true;
+        panel.style.transition = 'none';
+        if (e.cancelable) e.preventDefault();
+    }
+
+    function onMove(e) {
+        if (!active) return;
+        const p = pos(e);
+        // Top-left diagonal: drag distance along the diagonal
+        const dw = startX - p.clientX;
+        const dh = startY - p.clientY;
+        const newW = Math.max(280, Math.min(startW + dw, window.innerWidth - 40));
+        const newH = Math.max(300, Math.min(startH + dh, window.innerHeight - 40));
+        panel.style.width = newW + 'px';
+        panel.style.maxHeight = newH + 'px';
+        panel.style.height = newH + 'px';
+        if (e.cancelable) e.preventDefault();
+    }
+
+    function onUp() {
+        if (!active) return;
+        active = false;
+        panel.style.transition = '';
+    }
+
+    handle.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    handle.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+}
+
+// ── Mobile keyboard fix ─────────────────────────────────
+function initMobileKeyboardFix() {
+    if (!window.visualViewport) return;
+    const panel = document.getElementById('assistantPanel');
+    if (!panel) return;
+
+    window.visualViewport.addEventListener('resize', () => {
+        if (!panel.classList.contains('open')) return;
+        const keyboardH = window.innerHeight - window.visualViewport.height;
+        if (keyboardH > 100) {
+            // Keyboard open — push panel above it
+            panel.style.bottom = keyboardH + 'px';
+            panel.style.maxHeight = (window.visualViewport.height - 20) + 'px';
+        } else {
+            // Keyboard closed — reset
+            panel.style.bottom = '';
+            panel.style.maxHeight = '';
+        }
+    });
+}
 
 // ── Export / Import ──────────────────────────────────────
 window.exportData = function () {
@@ -255,11 +391,24 @@ window.editJournalEntry      = editJournalEntry;
 window.deleteJournalEntry    = deleteJournalEntry;
 
 // Assistant
-window.toggleAssistant = function () {
+window.toggleAssistant = function (forceClose) {
     const panel = document.getElementById('assistantPanel');
     const fab   = document.getElementById('assistantFab');
-    panel.classList.toggle('open');
-    fab.classList.toggle('hidden');
+    if (forceClose === true) {
+        panel.classList.remove('open');
+        fab.classList.remove('hidden');
+    } else {
+        panel.classList.toggle('open');
+        fab.classList.toggle('hidden');
+    }
+    // Autofocus input when opening (desktop only — mobile would pop keyboard)
+    const isDesktop = !('ontouchstart' in window);
+    if (panel.classList.contains('open') && isDesktop) {
+        setTimeout(() => {
+            const input = document.getElementById('chatInput');
+            if (input) input.focus();
+        }, 350);
+    }
 };
 window.handleSend = function () {
     const input = document.getElementById('chatInput');

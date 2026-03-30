@@ -369,7 +369,7 @@
 </div>
 
 <!-- ── KAIRA ASSISTANT ────────────────────────────── -->
-<button class="assistant-fab" id="assistantFab" onclick="toggleAssistant()"><img src="assets/kaira_avatar.png?v=2" alt="Kaira" class="fab-avatar"></button>
+<button class="assistant-fab" id="assistantFab"><img src="assets/kaira_avatar.png?v=2" alt="Kaira" class="fab-avatar"></button>
 <div class="assistant-panel" id="assistantPanel">
     <div class="assistant-header">
         <div class="kaira-header-info">
@@ -377,7 +377,7 @@
             <h4>KAIRA</h4>
             <div class="voice-status" id="voiceStatus" title="Desconectada"></div>
         </div>
-        <button onclick="toggleAssistant()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem;">&#10006;</button>
+        <button onclick="toggleAssistant(true)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem;">&#10006;</button>
     </div>
     <div id="chatLog"></div>
     <div class="assistant-input">

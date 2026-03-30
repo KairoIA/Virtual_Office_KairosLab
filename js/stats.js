@@ -64,7 +64,7 @@ export async function renderStats() {
     // 1. Weekly trend (completed per day, last 7 days)
     const days = Object.entries(stats.completedByDay);
     const maxDay = Math.max(...days.map(d => d[1]), 1);
-    const dayLabels = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     chartsHtml += `
         <div class="stats-chart-card">

@@ -53,10 +53,13 @@ router.get('/', async (req, res) => {
         const projects = projectsRes.data || [];
         const completed30 = completed30Res.data || [];
 
-        // === Completed by day (last 7 days) ===
+        // === Completed by day (Mon-Sun of current week) ===
         const completedByDay = {};
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(todayDate.getTime() - i * 86400000).toISOString().split('T')[0];
+        const dayOfWeek = todayDate.getDay(); // 0=Sun
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(todayDate.getTime() + mondayOffset * 86400000);
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(monday.getTime() + i * 86400000).toISOString().split('T')[0];
             completedByDay[d] = 0;
         }
         completed.forEach(c => {

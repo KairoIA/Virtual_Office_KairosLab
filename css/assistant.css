@@ -19,6 +19,9 @@
     transform: translateY(120%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    /* For resize handle positioning */
+    min-width: 280px;
+    min-height: 300px;
 }
 .assistant-panel.open {
     transform: translateY(0);
@@ -257,23 +260,37 @@
     background: transparent;
     padding: 0;
     overflow: hidden;
-    cursor: pointer;
+    cursor: grab;
     z-index: 2999;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 20px rgba(0, 242, 255, 0.3);
     transition: box-shadow 0.3s;
+    touch-action: none;
+    user-select: none;
+}
+.assistant-fab.dragging {
+    cursor: grabbing;
+    box-shadow: 0 8px 30px rgba(0, 242, 255, 0.5);
+    transition: none;
 }
 @media (max-width: 480px) {
     .assistant-panel {
         width: calc(100% - 20px) !important;
         right: 10px !important;
         bottom: 10px !important;
-        max-height: 70vh !important;
+        max-height: 60vh !important;
+        height: auto !important;
         border-radius: 12px !important;
     }
     .assistant-fab { width: 72px; height: 72px; bottom: 20px; right: 20px; }
+    .assistant-resize-handle { display: none; }
+    /* Keep panel stable when mobile keyboard opens */
+    .assistant-panel.open {
+        position: fixed;
+        bottom: 10px !important;
+    }
 }
 .assistant-fab:hover {
     box-shadow: 0 4px 30px rgba(0, 242, 255, 0.5);
@@ -288,5 +305,33 @@
     transform: scale(0);
     opacity: 0;
     pointer-events: none;
+}
+
+/* ── Resize Handle (top-left diagonal) ───────────────── */
+.assistant-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 22px;
+    height: 22px;
+    cursor: nwse-resize;
+    z-index: 10;
+    touch-action: none;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+.assistant-resize-handle:hover,
+.assistant-resize-handle:active {
+    opacity: 0.8;
+}
+.assistant-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 10px;
+    height: 10px;
+    border-left: 2px solid var(--highlight);
+    border-top: 2px solid var(--highlight);
 }
 
