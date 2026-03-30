@@ -6,3 +6,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 backend/node_modules/
+Voz_paisa.mp3
+Voz_paisa.wav
+*.mp3
+*.wav
+separate_voices.py

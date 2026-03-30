@@ -2,13 +2,17 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=3.0, user-scalable=yes">
     <title>KAIROS LAB | Virtual Office</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#00f2ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="KairosLab_logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
+    <link rel="shortcut icon" href="assets/logo_web.png?v=2">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/logo_app.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -18,32 +22,250 @@
 
 <canvas id="marketCanvas"></canvas>
 
-<div class="container">
-    <header>
-        <h1>KAIROS LAB <span>// VIRTUAL OFFICE</span></h1>
+<!-- ── NAVIGATION ──────────────────────────────────── -->
+<nav class="main-nav">
+    <div class="nav-brand"><img src="assets/logo_web.png?v=2" alt="KairosLab" class="nav-logo" onclick="document.getElementById('logoOverlay').classList.add('active')"><div class="brand-text"><span class="brand-name">KAIROS LAB</span><span class="brand-sub">SMART OFFICE</span></div></div>
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-view="hq">&#9889; Dashboard</button>
+        <button class="nav-tab" data-view="projects">&#128188; Projects</button>
+        <button class="nav-tab" data-view="tasksview">&#128203; Tasks</button>
+        <button class="nav-tab" data-view="listsview">&#128221; Lists</button>
+        <button class="nav-tab" data-view="calendar">&#128197; Calendar</button>
+        <button class="nav-tab" data-view="inbox">&#128229; Inbox</button>
+        <button class="nav-tab" data-view="library">&#127916; Watch Later</button>
+        <button class="nav-tab" data-view="journal">&#128221; Journal</button>
+        <button class="nav-tab" data-view="stats">&#128202; Stats</button>
+    </div>
+    <div class="nav-actions">
         <div class="search-wrapper">
             <div class="search-box">
                 <span class="search-icon">&#128269;</span>
-                <input type="text" id="searchInput" placeholder="Buscar en la base de datos...">
+                <input type="text" id="searchInput" placeholder="Buscar...">
             </div>
             <div id="searchResults" class="search-results"></div>
         </div>
-        <div class="controls">
-            <button class="nav-btn" onclick="changeMonth(-1)">&#9198;</button>
-            <input type="month" id="navMonth" onchange="navigateCalendar()">
-            <button class="nav-btn" onclick="changeMonth(1)">&#9197;</button>
-            <button class="btn-panel" onclick="toggleSidePanel()">&#128188; OFFICE</button>
-            <button class="icon-only-btn" onclick="exportData()" title="Backup">&#128190;</button>
-            <input type="file" id="importFile" style="display:none" onchange="importData(this)">
-            <button class="icon-only-btn" onclick="document.getElementById('importFile').click()" title="Restore">&#128194;</button>
+    </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: HQ / TODAY                                  -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view active" id="view-hq">
+    <div class="hq-grid">
+        <!-- Daily Briefing -->
+        <div class="hq-card hq-briefing" id="hqBriefing">
+            <div class="hq-card-header">
+                <h3>&#127775; DAILY BRIEFING</h3>
+                <span class="hq-date" id="hqDate"></span>
+            </div>
+            <div class="hq-briefing-content" id="hqBriefingContent">
+                <p class="text-muted">Cargando briefing...</p>
+            </div>
         </div>
-    </header>
+
+        <!-- DAY PLAN (4 sessions) -->
+        <div class="hq-card hq-sessions">
+            <div class="hq-card-header">
+                <h3>&#128197; DAY PLAN</h3>
+                <button class="session-build-btn" id="btnBuildSessions" title="Kaira builds your day">&#9889; Build</button>
+            </div>
+            <div id="hqDaySessions" class="sessions-grid"></div>
+        </div>
+
+        <!-- Radar de vencimientos -->
+        <div class="hq-card hq-radar">
+            <div class="hq-card-header">
+                <h3>&#128225; RADAR</h3>
+            </div>
+            <div id="hqRadar"></div>
+        </div>
+
+        <!-- Project Load -->
+        <div class="hq-card hq-load">
+            <div class="hq-card-header">
+                <h3>&#128200; PROJECTS</h3>
+            </div>
+            <div id="hqProjectLoad"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: PROJECTS                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-projects">
+    <div class="projects-header">
+        <h2>PROJECTS</h2>
+        <div class="projects-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="Trading">Trading</button>
+            <button class="filter-btn" data-filter="Dev">Dev</button>
+            <button class="filter-btn" data-filter="IA">IA</button>
+            <button class="filter-btn" data-filter="Bets">Bets</button>
+            <button class="filter-btn" data-filter="Personal">Personal</button>
+        </div>
+        <button class="btn-add-project" id="btnAddProject">+ NEW PROJECT</button>
+    </div>
+    <div class="projects-grid" id="projectsGrid"></div>
+    <label class="tv-toggle-completed">
+        <input type="checkbox" id="projShowCompleted"> Show completed projects
+    </label>
+    <div id="projectsCompletedSection" style="display:none"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: TASKS                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-tasksview">
+    <div class="tasks-view-header">
+        <h2>&#128203; TASKS</h2>
+        <div class="tasks-view-filters">
+            <button class="task-filter active" data-cat="all">All</button>
+            <button class="task-filter" data-cat="Trading">Trading</button>
+            <button class="task-filter" data-cat="Dev">Dev</button>
+            <button class="task-filter" data-cat="IA">IA</button>
+            <button class="task-filter" data-cat="Bets">Bets</button>
+            <button class="task-filter" data-cat="Personal">Personal</button>
+            <button class="task-filter" data-cat="General">General</button>
+        </div>
+    </div>
+    <div class="tv-add-bar">
+        <input type="text" id="tvAddText" class="tv-add-input" placeholder="Nueva tarea...">
+        <input type="date" id="tvAddDeadline" class="tv-add-date">
+        <select id="tvAddCategory" class="tv-add-select">
+            <option value="">Cat.</option>
+            <option value="Trading">Trading</option>
+            <option value="Dev">Dev</option>
+            <option value="IA">IA</option>
+            <option value="Bets">Bets</option>
+            <option value="Personal">Personal</option>
+            <option value="General">General</option>
+        </select>
+        <button id="tvAddBtn" class="tv-add-btn">+</button>
+    </div>
+    <label class="tv-toggle-completed">
+        <input type="checkbox" id="tvShowCompleted"> Show completed
+    </label>
+    <div class="tasks-view-list" id="tasksViewList"></div>
+    <div id="tasksCompletedSection" style="display:none"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: LISTS                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-listsview">
+    <div class="lists-header">
+        <h2>&#128221; LISTS</h2>
+        <button class="btn-add-project" id="btnAddList">+ NEW LIST</button>
+    </div>
+    <div id="listsViewContent"></div>
+</div>
+
+<!-- VIEW: CALENDAR                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-calendar">
+    <div class="calendar-controls">
+        <button class="nav-btn" onclick="changeMonth(-1)">&#9198;</button>
+        <input type="month" id="navMonth" onchange="navigateCalendar()">
+        <button class="nav-btn" onclick="changeMonth(1)">&#9197;</button>
+    </div>
     <div class="calendar-wrapper">
         <div class="calendar-grid" id="calendarGrid"></div>
     </div>
 </div>
 
-<!-- ── JOURNAL MODAL ──────────────────────────────────── -->
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: INBOX                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-inbox">
+    <div class="inbox-header">
+        <h2>&#128229; INBOX</h2>
+        <span class="inbox-count" id="inboxCount">0</span>
+    </div>
+    <div class="inbox-capture">
+        <input type="text" id="inboxInput" placeholder="Captura r&aacute;pida... idea, tarea, lo que sea" onkeydown="if(event.key==='Enter') captureToInbox()">
+        <button onclick="captureToInbox()" class="add-btn" style="background:var(--highlight); padding: 0 20px;">CAPTURAR</button>
+    </div>
+    <div class="inbox-list" id="inboxList"></div>
+    <label class="tv-toggle-completed">
+        <input type="checkbox" id="inboxShowProcessed"> Show processed
+    </label>
+    <div id="inboxProcessedSection" style="display:none"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: LIBRARY (Saved Content)                     -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-library">
+    <div class="library-header">
+        <h2>&#127916; WATCH LATER</h2>
+        <span class="inbox-count" id="libraryCount">0</span>
+        <div class="projects-filters" id="libraryFilters">
+            <button class="filter-btn active" data-topic="all">All</button>
+            <button class="filter-btn" data-topic="IA">IA</button>
+            <button class="filter-btn" data-topic="Trading">Trading</button>
+            <button class="filter-btn" data-topic="Dev">Dev</button>
+            <button class="filter-btn" data-topic="Crypto">Crypto</button>
+            <button class="filter-btn" data-topic="Bets">Bets</button>
+            <button class="filter-btn" data-topic="Productivity">Productivity</button>
+            <button class="filter-btn" data-topic="Health">Health</button>
+            <button class="filter-btn" data-topic="General">General</button>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="libraryShowReviewed"> Show reviewed
+        </label>
+    </div>
+    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:15px;">Manda links a Kaira por <strong>Telegram</strong> y aparecen aqu&iacute; clasificados. &#128233;</p>
+    <div class="library-list" id="libraryList"></div>
+    <div id="libraryReviewedSection"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: STATS                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-stats">
+    <div class="stats-header">
+        <h2>&#128202; STATS &amp; ANALYTICS</h2>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="stats-chart-section" id="statsCharts"></div>
+    <div class="stats-breakdown" id="statsBreakdown"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- VIEW: JOURNAL                                     -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="view" id="view-journal">
+    <div class="journal-tab-container">
+        <div class="journal-main">
+            <div class="journal-tab-header">
+                <h2>&#128221; JOURNAL</h2>
+                <div class="journal-date-selector">
+                    <label for="journalTabDate">Date:</label>
+                    <input type="date" id="journalTabDate">
+                </div>
+            </div>
+            <div class="journal-editor" id="journalTabEditor" contenteditable="true" spellcheck="false" placeholder="Write your journal entry..."></div>
+            <div class="journal-actions">
+                <button class="journal-btn-delete" onclick="deleteJournalFromTab()">&#128465; Delete</button>
+                <button class="journal-btn-save" onclick="saveJournalFromTab()">&#128190; Save</button>
+            </div>
+        </div>
+        <div class="journal-sidebar">
+            <h3>RECENT ENTRIES</h3>
+            <div class="journal-recent-list" id="journalRecentList">
+                <p class="text-muted" style="font-size:0.85rem;">No entries yet.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── DAY DETAIL MODAL ────────────────────────── -->
+<div class="modal-overlay" id="dayDetailModal">
+    <div class="modal-content" id="dayDetailContent" style="max-height:85vh; overflow-y:auto;"></div>
+</div>
+
+<!-- ── JOURNAL MODAL ──────────────────────────────── -->
 <div class="modal-overlay" id="journalModal">
     <div class="modal-content">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px;">
@@ -51,11 +273,11 @@
             <button onclick="closeJournal()" style="padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--border); border-radius:4px; font-size:1rem; color:var(--text-muted);">&#10006;</button>
         </div>
         <div id="modalTasksArea" class="modal-tasks-area" style="display:none; margin-bottom:15px; background:rgba(210,153,34,0.1); padding:10px; border-radius:6px; border: 1px solid var(--warning);">
-            <div style="color:var(--warning); font-size:0.85rem; font-weight:bold; margin-bottom:8px; font-family:'Rajdhani',sans-serif; text-shadow: 0 0 5px var(--warning);">&#9888;&#65039; DEADLINES:</div>
+            <div style="color:var(--warning); font-size:0.85rem; font-weight:bold; margin-bottom:8px; font-family:'Rajdhani',sans-serif;">&#9888;&#65039; DEADLINES:</div>
             <div id="modalTasksList" style="color: var(--text-main); font-size: 0.9rem; font-family: 'Roboto Mono', monospace;"></div>
         </div>
         <div id="modalCompletedArea" class="modal-tasks-area" style="display:none; margin-bottom:15px; background:rgba(22, 163, 74, 0.1); padding:10px; border-radius:6px; border: 1px solid var(--success);">
-            <div style="color:var(--success); font-size:0.85rem; font-weight:bold; margin-bottom:8px; font-family:'Rajdhani',sans-serif; text-shadow: 0 0 5px var(--success);">&#9989; COMPLETED TASKS:</div>
+            <div style="color:var(--success); font-size:0.85rem; font-weight:bold; margin-bottom:8px; font-family:'Rajdhani',sans-serif;">&#9989; COMPLETED TASKS:</div>
             <div id="modalCompletedList" style="color: var(--text-main); font-size: 0.9rem; font-family: 'Roboto Mono', monospace;"></div>
         </div>
         <div class="rich-toolbar" id="toolbarContainer">
@@ -91,7 +313,7 @@
     </div>
 </div>
 
-<!-- ── HISTORY MODAL ──────────────────────────────────── -->
+<!-- ── HISTORY MODAL ──────────────────────────────── -->
 <div class="modal-overlay" id="historyModal">
     <div class="modal-content" style="height: 80vh;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px;">
@@ -102,63 +324,78 @@
     </div>
 </div>
 
-<!-- ── SIDE PANEL ─────────────────────────────────────── -->
-<div class="side-panel" id="sidePanel">
-    <div id="resizeHandle" class="resize-handle"></div>
-    <div class="panel-header">
-        <div style="display:flex; align-items:center; gap:10px;">
-            <h3>OFFICE</h3>
-            <button onclick="toggleHistoryModal()" title="Ver Historial" style="background:transparent; border:1px solid var(--border); border-radius:4px; cursor:pointer; color:var(--success); font-size: 1.2rem;">&#128214;</button>
+<!-- ── PROJECT MODAL ──────────────────────────────── -->
+<div class="modal-overlay" id="projectModal">
+    <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px;">
+            <h2 id="projectModalTitle" style="margin:0; color:var(--accent); font-family:'Rajdhani',sans-serif; text-shadow: var(--neon-shadow);">NEW PROJECT</h2>
+            <button onclick="closeProjectModal()" style="padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--border); border-radius:4px; font-size:1rem; color:var(--text-muted);">&#10006;</button>
         </div>
-        <button onclick="toggleSidePanel()" style="background:transparent; border:none; color:var(--text-muted); font-size:1.2rem; cursor:pointer;">&#10006;</button>
-    </div>
-    <div class="panel-scroll">
-        <div class="section-title reminders">&#128276; Reminders & Deadlines</div>
-        <div class="input-group">
-            <input type="text" id="newReminderText" placeholder="Recordatorio..." onkeydown="if(event.key==='Enter') addReminder()">
-            <div class="input-row">
-                <div class="icon-dropdown-wrapper">
-                    <button id="remIconBtn" class="icon-dropdown-btn" onclick="toggleIconMenu('reminderIcons')">&#127991;&#65039;</button>
-                    <div id="reminderIcons" class="icon-dropdown-content"></div>
-                </div>
-                <input type="date" id="newReminderDate">
-                <button class="add-btn" style="background: var(--warning); box-shadow: 0 0 10px var(--warning);" onclick="addReminder()">+</button>
+        <div class="project-form">
+            <input type="hidden" id="projEditId">
+            <label>Name</label>
+            <input type="text" id="projName" placeholder="Project name...">
+            <label>Type</label>
+            <select id="projType">
+                <option value="temporal">Temporal</option>
+                <option value="permanent">Permanente</option>
+            </select>
+            <label>Domain</label>
+            <select id="projDomain">
+                <option value="Trading">Trading</option>
+                <option value="Dev">Dev</option>
+                <option value="IA">IA</option>
+                <option value="Bets">Bets</option>
+                <option value="Personal">Personal</option>
+            </select>
+            <label>Status</label>
+            <select id="projStatus">
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="blocked">Blocked</option>
+                <option value="incubating">Incubating</option>
+                <option value="done">Done</option>
+            </select>
+            <label>Objective</label>
+            <input type="text" id="projObjective" placeholder="Current objective...">
+            <label>Notes</label>
+            <textarea id="projNotes" rows="3" placeholder="Notes..."></textarea>
+            <div style="text-align:right; margin-top:15px;">
+                <button onclick="closeProjectModal()" style="background:transparent;">Cancel</button>
+                <button onclick="saveProjectFromModal()" style="background:var(--success); color:white; border:none; padding:8px 25px; font-weight:bold; font-family:'Rajdhani',sans-serif; box-shadow:0 0 10px var(--success);">SAVE</button>
             </div>
         </div>
-        <div id="reminderList" style="margin-top: 15px;"></div>
-
-        <div class="section-title tasks">&#128203; General Tasks (Backlog)</div>
-        <div class="input-group">
-            <input type="text" id="newGenTaskText" placeholder="Tarea pendiente..." onkeydown="if(event.key==='Enter') addGenTask()">
-            <div class="input-row">
-                <div class="icon-dropdown-wrapper">
-                    <button id="taskIconBtn" class="icon-dropdown-btn" onclick="toggleIconMenu('taskIcons')">&#127991;&#65039;</button>
-                    <div id="taskIcons" class="icon-dropdown-content"></div>
-                </div>
-                <button class="add-btn" style="background: var(--general); flex-grow:1; box-shadow: 0 0 10px var(--general);" onclick="addGenTask()">+ A&Ntilde;ADIR</button>
-            </div>
-        </div>
-        <div id="genTaskList" style="margin-top: 15px;"></div>
     </div>
 </div>
 
-<!-- ── KAIRA ASSISTANT ─────────────────────────────── -->
-<button class="assistant-fab" id="assistantFab" onclick="toggleAssistant()">&#129302;</button>
-
+<!-- ── KAIRA ASSISTANT ────────────────────────────── -->
+<button class="assistant-fab" id="assistantFab" onclick="toggleAssistant()"><img src="assets/kaira_avatar.png?v=2" alt="Kaira" class="fab-avatar"></button>
 <div class="assistant-panel" id="assistantPanel">
     <div class="assistant-header">
-        <h4>KAIRA // ASSISTANT</h4>
-        <div style="display:flex; align-items:center; gap:10px;">
+        <div class="kaira-header-info">
+            <img src="assets/kaira_avatar.png?v=2" alt="Kaira" class="kaira-header-avatar" onclick="document.getElementById('kairaOverlay').classList.add('active')" style="cursor:pointer">
+            <h4>KAIRA</h4>
             <div class="voice-status" id="voiceStatus" title="Desconectada"></div>
-            <button onclick="toggleAssistant()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem;">&#10006;</button>
         </div>
+        <button onclick="toggleAssistant()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem;">&#10006;</button>
     </div>
     <div id="chatLog"></div>
     <div class="assistant-input">
-        <button id="micButton" onclick="handleMic()" title="Hablar con Kaira">&#127908;</button>
+        <button id="micVoice" class="mic-btn mic-voice" onclick="handleMicVoice()" title="Nota de voz → Kaira responde en AUDIO">&#127908;</button>
+        <button id="micText" class="mic-btn mic-text" onclick="handleMicText()" title="Nota de voz → Kaira responde en TEXTO">&#127908;</button>
         <input type="text" id="chatInput" placeholder="Habla con Kaira..." onkeydown="if(event.key==='Enter') handleSend()">
         <button class="send-btn" onclick="handleSend()">&#10148;</button>
     </div>
+</div>
+
+<!-- Logo Overlay -->
+<div id="logoOverlay" class="logo-overlay" onclick="this.classList.remove('active')">
+    <img src="assets/logo_web.png?v=2" alt="KairosLab">
+</div>
+
+<!-- Kaira Avatar Overlay -->
+<div id="kairaOverlay" class="logo-overlay" onclick="this.classList.remove('active')">
+    <img src="assets/kaira_avatar.png?v=2" alt="Kaira">
 </div>
 
 <link rel="stylesheet" href="css/assistant.css">

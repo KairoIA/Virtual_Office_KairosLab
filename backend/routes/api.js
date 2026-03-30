@@ -64,7 +64,7 @@ router.get('/reminders', async (req, res) => {
 });
 
 router.post('/reminders', async (req, res) => {
-    const { text, due_date } = req.body;
+    const { text, due_date, due_time } = req.body;
     const { data: maxPos } = await supabase
         .from('reminders')
         .select('position')
@@ -73,9 +73,12 @@ router.post('/reminders', async (req, res) => {
         .single();
     const position = (maxPos?.position || 0) + 1;
 
+    const row = { text, due_date: due_date || null, position };
+    if (due_time) row.due_time = due_time;
+
     const { data, error } = await supabase
         .from('reminders')
-        .insert({ text, due_date: due_date || null, position })
+        .insert(row)
         .select()
         .single();
     if (error) return res.status(500).json({ error: error.message });
@@ -83,11 +86,12 @@ router.post('/reminders', async (req, res) => {
 });
 
 router.put('/reminders/:id', async (req, res) => {
-    const { text, done, position } = req.body;
+    const { text, done, position, due_time } = req.body;
     const update = {};
     if (text !== undefined) update.text = text;
     if (done !== undefined) update.done = done;
     if (position !== undefined) update.position = position;
+    if (due_time !== undefined) update.due_time = due_time || null;
 
     const { data, error } = await supabase
         .from('reminders')
@@ -119,7 +123,7 @@ router.get('/tasks', async (req, res) => {
 });
 
 router.post('/tasks', async (req, res) => {
-    const { text } = req.body;
+    const { text, project_id, deadline, category, priority } = req.body;
     const { data: maxPos } = await supabase
         .from('tasks')
         .select('position')
@@ -128,9 +132,15 @@ router.post('/tasks', async (req, res) => {
         .single();
     const position = (maxPos?.position || 0) + 1;
 
+    const row = { text, position };
+    if (project_id) row.project_id = project_id;
+    if (deadline) row.deadline = deadline;
+    if (category) row.category = category;
+    if (priority) row.priority = priority;
+
     const { data, error } = await supabase
         .from('tasks')
-        .insert({ text, position })
+        .insert(row)
         .select()
         .single();
     if (error) return res.status(500).json({ error: error.message });
@@ -138,11 +148,14 @@ router.post('/tasks', async (req, res) => {
 });
 
 router.put('/tasks/:id', async (req, res) => {
-    const { text, done, position } = req.body;
+    const { text, done, position, deadline, category, priority } = req.body;
     const update = {};
     if (text !== undefined) update.text = text;
     if (done !== undefined) update.done = done;
     if (position !== undefined) update.position = position;
+    if (deadline !== undefined) update.deadline = deadline;
+    if (category !== undefined) update.category = category;
+    if (priority !== undefined) update.priority = priority;
 
     const { data, error } = await supabase
         .from('tasks')

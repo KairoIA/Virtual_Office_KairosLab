@@ -78,8 +78,8 @@ async function processAndSpeak(ws, userText) {
             fullResponse += token;
             sentenceBuffer += token;
 
-            // When we have a complete sentence, send to TTS
-            if (SENTENCE_ENDINGS.test(sentenceBuffer) && sentenceBuffer.trim().length > 15) {
+            // When we have a complete sentence, send to TTS (buffer more to reduce API calls)
+            if (SENTENCE_ENDINGS.test(sentenceBuffer) && sentenceBuffer.trim().length > 80) {
                 const textToSpeak = sentenceBuffer.trim();
                 sentenceBuffer = '';
                 speakChunk(ws, textToSpeak);
@@ -99,9 +99,19 @@ async function processAndSpeak(ws, userText) {
     send(ws, { type: 'done' });
 }
 
+function cleanForTTS(text) {
+    // Remove emojis and special symbols that cause TTS pauses
+    return text
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 async function speakChunk(ws, text) {
+    const clean = cleanForTTS(text);
+    if (!clean) return;
     try {
-        await streamTTS(text, (audioChunk) => {
+        await streamTTS(clean, (audioChunk) => {
             send(ws, { type: 'audio', data: audioChunk.toString('base64') });
         });
     } catch (err) {

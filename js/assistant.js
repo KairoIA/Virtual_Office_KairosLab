@@ -15,11 +15,15 @@ let isRecording = false;
 let voiceMode = false;
 let recordingStream = null;
 let recordingMime = 'audio/webm';
+let activeRecordingButton = null; // 'voice' or 'text'
 
 // ── Init ─────────────────────────────────────────────
 export function connectVoice() {
     // No WebSocket — using REST only for reliability
+    // Set connected immediately and also after delay to catch late DOM
     updateStatus('connected');
+    setTimeout(() => updateStatus('connected'), 500);
+    setTimeout(() => updateStatus('connected'), 2000);
 }
 
 // ── Text Chat ────────────────────────────────────────
@@ -43,10 +47,14 @@ async function sendToAI(text) {
                 body: JSON.stringify({ message: text }),
             });
             const data = await res.json();
-            appendChat('assistant', data.response);
-            if (data.functions_called?.length) {
-                data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
-                if (onDataChanged) onDataChanged();
+            if (data.api_error) {
+                appendChat('system', `\u26A0\uFE0F ${data.error}`);
+            } else {
+                appendChat('assistant', data.response);
+                if (data.functions_called?.length) {
+                    data.functions_called.forEach(fc => showFunctionCall(fc.name, fc.result));
+                    if (onDataChanged) onDataChanged();
+                }
             }
         } catch (err) {
             appendChat('system', `Error de conexion: ${err.message}`);
@@ -68,7 +76,8 @@ async function sendToAIStreaming(text) {
         let sentences = []; // Collect sentences with their text
         const SENTENCE_END = /[.!?;]\s*$/;
 
-        // Phase 1: Collect all tokens, buffer sentences, start TTS fetching early
+        // Phase 1: Collect all tokens and split into sentences
+        let sentenceTexts = [];
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -88,20 +97,15 @@ async function sendToAIStreaming(text) {
                         sentenceBuffer += msg.text;
 
                         if (SENTENCE_END.test(sentenceBuffer) && sentenceBuffer.trim().length > 10) {
-                            const sentence = sentenceBuffer.trim();
+                            sentenceTexts.push(sentenceBuffer.trim());
                             sentenceBuffer = '';
-                            // Start fetching TTS immediately (don't wait)
-                            const audioPromise = fetchTTSAudio(sentence);
-                            sentences.push({ text: sentence, audioPromise });
                         }
                     } else if (msg.type === 'function') {
                         showFunctionCall(msg.name, msg.result);
                         if (onDataChanged) onDataChanged();
                     } else if (msg.type === 'done') {
                         if (sentenceBuffer.trim()) {
-                            const sentence = sentenceBuffer.trim();
-                            const audioPromise = fetchTTSAudio(sentence);
-                            sentences.push({ text: sentence, audioPromise });
+                            sentenceTexts.push(sentenceBuffer.trim());
                             sentenceBuffer = '';
                         }
                     }
@@ -109,14 +113,28 @@ async function sendToAIStreaming(text) {
             }
         }
 
-        // Phase 2: Play each sentence — typewriter text + audio simultaneously
+        // Flush remaining
+        if (sentenceBuffer.trim()) {
+            sentenceTexts.push(sentenceBuffer.trim());
+            sentenceBuffer = '';
+        }
+
+        // Phase 2: Launch TTS with context (previous_text + next_text) for natural prosody
+        for (let i = 0; i < sentenceTexts.length; i++) {
+            const previous_text = i > 0 ? sentenceTexts[i - 1] : undefined;
+            const next_text = i < sentenceTexts.length - 1 ? sentenceTexts[i + 1] : undefined;
+            sentences.push({
+                text: sentenceTexts[i],
+                audioPromise: fetchTTSAudio(sentenceTexts[i], previous_text, next_text),
+            });
+        }
+
+        // Phase 3: Play each sentence — typewriter text + audio simultaneously
         for (const s of sentences) {
             const audioUrl = await s.audioPromise;
             if (audioUrl) {
-                // Play audio and typewriter text at the same time
                 await playSentenceWithText(s.text, audioUrl);
             } else {
-                // No audio, just show text
                 await typewriterText(s.text);
             }
         }
@@ -127,12 +145,15 @@ async function sendToAIStreaming(text) {
     }
 }
 
-async function fetchTTSAudio(text) {
+async function fetchTTSAudio(text, previous_text, next_text) {
     try {
+        const body = { text };
+        if (previous_text) body.previous_text = previous_text;
+        if (next_text) body.next_text = next_text;
         const res = await fetch(`${API_BASE}/api/voice/tts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify(body),
         });
         if (!res.ok) return null;
         const blob = await res.blob();
@@ -146,11 +167,21 @@ function playSentenceWithText(text, audioUrl) {
     return new Promise((resolve) => {
         const audio = new Audio(audioUrl);
 
-        // Start typewriter when audio starts playing
-        audio.onplay = () => {
-            const duration = audio.duration || 3;
+        // Wait for metadata so duration is accurate
+        const startPlayback = () => {
+            const duration = (audio.duration && isFinite(audio.duration)) ? audio.duration : 3;
             const msPerChar = (duration * 1000) / text.length;
-            typewriterText(text, msPerChar);
+            typewriterText(text, Math.max(msPerChar, 15));
+        };
+
+        audio.onloadedmetadata = () => {
+            audio.play().catch(() => {
+                typewriterText(text).then(resolve);
+            });
+        };
+
+        audio.onplay = () => {
+            startPlayback();
         };
 
         audio.onended = () => {
@@ -161,9 +192,6 @@ function playSentenceWithText(text, audioUrl) {
             URL.revokeObjectURL(audioUrl);
             typewriterText(text).then(resolve);
         };
-        audio.play().catch(() => {
-            typewriterText(text).then(resolve);
-        });
     });
 }
 
@@ -191,19 +219,38 @@ function detectMimeType() {
     return '';
 }
 
-export async function toggleRecording() {
-    if (isRecording) {
+// Voice mic (pink) — Kaira responds with audio
+export async function toggleRecordingVoice() {
+    if (isRecording && activeRecordingButton === 'voice') {
         stopRecording();
-    } else {
+    } else if (!isRecording) {
+        activeRecordingButton = 'voice';
+        voiceMode = true;
         await startRecording();
     }
+}
+
+// Text mic (blue) — Kaira responds with text only
+export async function toggleRecordingText() {
+    if (isRecording && activeRecordingButton === 'text') {
+        stopRecording();
+    } else if (!isRecording) {
+        activeRecordingButton = 'text';
+        voiceMode = false;
+        await startRecording();
+    }
+}
+
+// Keep legacy export for backwards compat
+export async function toggleRecording() {
+    await toggleRecordingVoice();
 }
 
 async function startRecording() {
     try {
         recordingMime = detectMimeType();
         if (!recordingMime) {
-            appendChat('system', 'Tu navegador no soporta grabacion de audio');
+            appendChat('system', '⚠️ Browser does not support audio recording');
             return;
         }
 
@@ -224,13 +271,12 @@ async function startRecording() {
             appendChat('system', `Error de grabacion: ${e.error?.message || 'desconocido'}`);
             recordingStream.getTracks().forEach(t => t.stop());
             isRecording = false;
-            updateMicButton(false);
+            updateMicButtons(false);
         };
 
         mediaRecorder.start(500);
         isRecording = true;
-        voiceMode = true;
-        updateMicButton(true);
+        updateMicButtons(true);
     } catch (err) {
         appendChat('system', `Micro no disponible: ${err.message}`);
     }
@@ -241,18 +287,18 @@ function stopRecording() {
         mediaRecorder.stop();
     }
     isRecording = false;
-    updateMicButton(false);
+    updateMicButtons(false);
 }
 
 async function processRecordedAudio() {
     const blob = new Blob(audioChunks, { type: recordingMime });
 
     if (blob.size < 1000) {
-        appendChat('system', 'Audio demasiado corto, intenta de nuevo');
+        appendChat('system', '🎤 Audio too short, try again');
         return;
     }
 
-    appendChat('system', 'Transcribiendo...');
+    appendChat('system', '👱‍♀️ Kaira is listening...');
 
     try {
         const res = await fetch(`${API_BASE}/api/voice/transcribe`, {
@@ -263,21 +309,26 @@ async function processRecordedAudio() {
 
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
+            if (errData.api_error) {
+                removeSystemMessages('escuchando');
+                appendChat('system', `\u26A0\uFE0F ${errData.error}`);
+                return;
+            }
             throw new Error(errData.error || `HTTP ${res.status}`);
         }
 
         const { text } = await res.json();
-        removeSystemMessages('Transcribiendo');
+        removeSystemMessages('escuchando');
 
         if (!text || !text.trim()) {
-            appendChat('system', 'No se detecto voz, intenta de nuevo');
+            appendChat('system', '🎤 No voice detected, try again');
             return;
         }
 
         appendChat('user', text);
         await sendToAI(text);
     } catch (err) {
-        removeSystemMessages('Transcribiendo');
+        removeSystemMessages('escuchando');
         appendChat('system', `Error: ${err.message}`);
     }
 }
@@ -319,6 +370,7 @@ function playTTSQueue() {
 
 // ── UI Helpers ───────────────────────────────────────
 let currentAssistantMsg = null;
+let currentTextNode = null;
 
 function appendChat(role, text) {
     const chatLog = document.getElementById('chatLog');
@@ -326,8 +378,12 @@ function appendChat(role, text) {
 
     const div = document.createElement('div');
     div.className = `chat-msg chat-${role}`;
-    const label = role === 'user' ? 'Tu' : role === 'assistant' ? 'Kaira' : 'Sistema';
-    div.innerHTML = `<span class="chat-role">${label}:</span> ${text}`;
+    if (role === 'system') {
+        div.innerHTML = text;
+    } else {
+        const label = role === 'user' ? 'Tu' : 'Kaira';
+        div.innerHTML = `<span class="chat-role">${label}:</span> ${text}`;
+    }
     chatLog.appendChild(div);
     chatLog.scrollTop = chatLog.scrollHeight;
 }
@@ -340,15 +396,18 @@ function appendToken(token) {
         currentAssistantMsg = document.createElement('div');
         currentAssistantMsg.className = 'chat-msg chat-assistant';
         currentAssistantMsg.innerHTML = '<span class="chat-role">Kaira:</span> ';
+        currentTextNode = document.createTextNode('');
+        currentAssistantMsg.appendChild(currentTextNode);
         chatLog.appendChild(currentAssistantMsg);
     }
 
-    currentAssistantMsg.innerHTML += token;
+    currentTextNode.textContent += token;
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
 function finalizeResponse() {
     currentAssistantMsg = null;
+    currentTextNode = null;
 }
 
 function showFunctionCall(name, result) {
@@ -379,10 +438,22 @@ function updateStatus(status) {
     }
 }
 
-function updateMicButton(recording) {
-    const btn = document.getElementById('micButton');
-    if (btn) {
-        btn.classList.toggle('recording', recording);
-        btn.title = recording ? 'Detener grabacion' : 'Hablar con Kaira';
+function updateMicButtons(recording) {
+    const voiceBtn = document.getElementById('micVoice');
+    const textBtn = document.getElementById('micText');
+
+    if (recording) {
+        // Highlight only the active button, dim the other
+        if (activeRecordingButton === 'voice') {
+            if (voiceBtn) voiceBtn.classList.add('recording');
+            if (textBtn) { textBtn.style.opacity = '0.3'; textBtn.style.pointerEvents = 'none'; }
+        } else {
+            if (textBtn) textBtn.classList.add('recording');
+            if (voiceBtn) { voiceBtn.style.opacity = '0.3'; voiceBtn.style.pointerEvents = 'none'; }
+        }
+    } else {
+        // Reset both
+        if (voiceBtn) { voiceBtn.classList.remove('recording'); voiceBtn.style.opacity = ''; voiceBtn.style.pointerEvents = ''; }
+        if (textBtn) { textBtn.classList.remove('recording'); textBtn.style.opacity = ''; textBtn.style.pointerEvents = ''; }
     }
 }

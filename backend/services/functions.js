@@ -1,109 +1,98 @@
 /**
- * AI Function Definitions
- * These are the tools the AI assistant can call to manage your office
+ * AI Function Definitions — V4
+ * Full office: agenda, projects, daily plan, notes, expenses,
+ * memory, lists, diary, saved content, recurring, web search
  */
 
 export const ASSISTANT_FUNCTIONS = [
-    {
-        type: 'function',
-        function: {
-            name: 'add_reminder',
-            description: 'Add a new reminder with an optional due date to the user agenda',
-            parameters: {
-                type: 'object',
-                properties: {
-                    text: { type: 'string', description: 'The reminder text' },
-                    due_date: { type: 'string', description: 'Due date in YYYY-MM-DD format (optional)', nullable: true },
-                },
-                required: ['text'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'add_task',
-            description: 'Add a new task to the general backlog',
-            parameters: {
-                type: 'object',
-                properties: {
-                    text: { type: 'string', description: 'The task description' },
-                },
-                required: ['text'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'complete_item',
-            description: 'Mark a reminder or task as completed',
-            parameters: {
-                type: 'object',
-                properties: {
-                    item_type: { type: 'string', enum: ['reminder', 'task'], description: 'Type of item' },
-                    search_text: { type: 'string', description: 'Text to search for in the item list (partial match)' },
-                },
-                required: ['item_type', 'search_text'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'delete_item',
-            description: 'Delete a reminder or task',
-            parameters: {
-                type: 'object',
-                properties: {
-                    item_type: { type: 'string', enum: ['reminder', 'task'], description: 'Type of item' },
-                    search_text: { type: 'string', description: 'Text to search for in the item list (partial match)' },
-                },
-                required: ['item_type', 'search_text'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'write_journal',
-            description: 'Write or append to the journal entry for a specific date',
-            parameters: {
-                type: 'object',
-                properties: {
-                    date: { type: 'string', description: 'Date in YYYY-MM-DD format. Use today if not specified.' },
-                    content: { type: 'string', description: 'HTML content to write in the journal' },
-                    append: { type: 'boolean', description: 'If true, append to existing content. If false, replace.' },
-                },
-                required: ['date', 'content'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'get_agenda',
-            description: 'Get the current agenda: pending reminders, tasks, and today journal entry',
-            parameters: {
-                type: 'object',
-                properties: {
-                    date: { type: 'string', description: 'Date in YYYY-MM-DD format. Defaults to today.' },
-                },
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'search_entries',
-            description: 'Search across journal entries, reminders, and tasks',
-            parameters: {
-                type: 'object',
-                properties: {
-                    query: { type: 'string', description: 'Search query text' },
-                },
-                required: ['query'],
-            },
-        },
-    },
+    // ── Core ─────────────────────────────────────────
+    { type: 'function', function: { name: 'add_reminder', description: 'Add a reminder with optional due date, time, category, project, and priority. If the user specifies a time (e.g. "a las 3", "at 15:00"), set due_time so Kaira sends a Telegram alert 30 minutes before.', parameters: { type: 'object', properties: { text: { type: 'string' }, due_date: { type: 'string', description: 'YYYY-MM-DD' }, due_time: { type: 'string', description: 'HH:MM (24h format). Optional. If set, Kaira will alert via Telegram 30 min before.' }, category: { type: 'string', description: 'Trading, Dev, IA, Bets, Personal, General' }, project_id: { type: 'string' }, priority: { type: 'string', enum: ['green', 'yellow', 'red'], description: 'green=calm, yellow=attention, red=urgent. Optional.' } }, required: ['text'] } } },
+    { type: 'function', function: { name: 'add_task', description: 'Add a task with optional deadline, category, project, and priority', parameters: { type: 'object', properties: { text: { type: 'string' }, deadline: { type: 'string', description: 'YYYY-MM-DD deadline. Optional — some tasks have no deadline.' }, category: { type: 'string', description: 'Trading, Dev, IA, Bets, Personal, General' }, project_id: { type: 'string' }, priority: { type: 'string', enum: ['green', 'yellow', 'red'], description: 'green=calm, yellow=attention, red=urgent. Optional.' } }, required: ['text'] } } },
+    { type: 'function', function: { name: 'complete_item', description: 'Mark reminder/task as completed. Gets a green tick and is saved to completed history.', parameters: { type: 'object', properties: { item_type: { type: 'string', enum: ['reminder', 'task'] }, search_text: { type: 'string' } }, required: ['item_type', 'search_text'] } } },
+    { type: 'function', function: { name: 'delete_item', description: 'Delete a reminder/task', parameters: { type: 'object', properties: { item_type: { type: 'string', enum: ['reminder', 'task'] }, search_text: { type: 'string' } }, required: ['item_type', 'search_text'] } } },
+    { type: 'function', function: { name: 'write_journal', description: 'Write/append to the daily journal (bitácora del día). NO categories — journal is organized ONLY by date. When the user gives a brief voice summary, EXPAND it into a well-written detailed journal entry.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD' }, content: { type: 'string', description: 'The journal content. If user gives brief notes, EXPAND them into a proper detailed entry.' }, append: { type: 'boolean', description: 'true to add to existing entry, false to replace' } }, required: ['date', 'content'] } } },
+    { type: 'function', function: { name: 'read_journal', description: 'Read journal entries by date or date range. Use when user asks about past days, what happened on a date, weekly/monthly summary, or to review what was written.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'Single date YYYY-MM-DD' }, date_from: { type: 'string', description: 'Range start YYYY-MM-DD' }, date_to: { type: 'string', description: 'Range end YYYY-MM-DD' } } } } },
+    { type: 'function', function: { name: 'get_agenda', description: 'Get full agenda: reminders, tasks, daily plan, projects, this/next week', parameters: { type: 'object', properties: { date: { type: 'string' } } } } },
+    { type: 'function', function: { name: 'search_entries', description: 'Search across ALL office data: journal, reminders, tasks, projects, inbox, completed history, notes, activity log, saved content (Watch Later), expenses, persistent memory, and recurring reminders. Returns matches from every table. Use this to find ANYTHING that ever happened in the office.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'Search term — matches partial text across all tables' } }, required: ['query'] } } },
+
+    // ── Projects ─────────────────────────────────────
+    { type: 'function', function: { name: 'create_project', description: 'Create a project. Two types: "temporal" (has an end goal, can be completed) and "permanent" (ongoing work, never marked done). Deadline is optional.', parameters: { type: 'object', properties: { name: { type: 'string' }, domain: { type: 'string', enum: ['Trading', 'Dev', 'IA', 'Bets', 'Personal'] }, project_type: { type: 'string', enum: ['temporal', 'permanent'], description: 'temporal = has end goal, can be completed. permanent = ongoing, never done.' }, objective: { type: 'string' }, deadline: { type: 'string', description: 'YYYY-MM-DD deadline. Optional.' } }, required: ['name', 'domain'] } } },
+    { type: 'function', function: { name: 'update_project', description: 'Update project status/objective/deadline. Only temporal projects can be marked as done.', parameters: { type: 'object', properties: { search_name: { type: 'string' }, status: { type: 'string', enum: ['active', 'paused', 'blocked', 'incubating', 'done'] }, project_type: { type: 'string', enum: ['temporal', 'permanent'] }, objective: { type: 'string' }, notes: { type: 'string' }, deadline: { type: 'string', description: 'YYYY-MM-DD or null to remove deadline' } }, required: ['search_name'] } } },
+    { type: 'function', function: { name: 'get_project_docs', description: 'Get all documentation for a project: journal entries, notes, tasks, reminders linked to it', parameters: { type: 'object', properties: { search_name: { type: 'string' } }, required: ['search_name'] } } },
+
+    // ── Daily Plan (FOR TODAY, up to 10 items) ───────
+    { type: 'function', function: { name: 'set_daily_plan', description: 'Set or update a daily plan item (slot 1-10). Use to build the daily plan proactively based on deadlines, projects, unfinished tasks, and suggestions.', parameters: { type: 'object', properties: { slot: { type: 'number', description: '1-10' }, text: { type: 'string' }, category: { type: 'string', description: 'Trading, Dev, IA, Bets, Personal, General' }, project_id: { type: 'string' }, energy: { type: 'string', enum: ['deep', 'management', 'quick', 'waiting'] }, priority: { type: 'string', enum: ['green', 'yellow', 'red'] } }, required: ['slot', 'text'] } } },
+    { type: 'function', function: { name: 'build_daily_plan', description: 'Auto-generate the daily plan for today by analyzing all deadlines, overdue items, active projects, unfinished tasks from yesterday, pending content to review, and suggesting what the user should focus on. Returns a proposed plan.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } } } } },
+    { type: 'function', function: { name: 'move_plan_item', description: 'Move a daily plan item to another date (e.g. "move this to tomorrow")', parameters: { type: 'object', properties: { search_text: { type: 'string' }, new_date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['search_text', 'new_date'] } } },
+
+    // ── Notes / Post-its ─────────────────────────────
+    { type: 'function', function: { name: 'add_note', description: 'Add a quick note/post-it. Can be linked to a category and/or project.', parameters: { type: 'object', properties: { text: { type: 'string' }, category: { type: 'string', description: 'Trading, Dev, IA, Bets, Personal, General' }, project_id: { type: 'string' }, color: { type: 'string', enum: ['cyan', 'gold', 'green', 'red', 'purple'], description: 'Note color, optional' }, pinned: { type: 'boolean' } }, required: ['text'] } } },
+    { type: 'function', function: { name: 'get_notes', description: 'Get notes, optionally filtered by category or project', parameters: { type: 'object', properties: { category: { type: 'string' }, project_id: { type: 'string' } } } } },
+    { type: 'function', function: { name: 'delete_note', description: 'Delete a note by text match', parameters: { type: 'object', properties: { search_text: { type: 'string' } }, required: ['search_text'] } } },
+
+    // ── Inbox ────────────────────────────────────────
+    { type: 'function', function: { name: 'add_to_inbox', description: 'Quick capture to inbox', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } } },
+
+    // ── Briefing ─────────────────────────────────────
+    { type: 'function', function: { name: 'get_briefing', description: 'Full daily briefing with proactive suggestions', parameters: { type: 'object', properties: {} } } },
+
+    // ── Expenses ─────────────────────────────────────
+    { type: 'function', function: { name: 'log_expense', description: 'Register expense', parameters: { type: 'object', properties: { concept: { type: 'string' }, amount: { type: 'number' }, category: { type: 'string' }, date: { type: 'string' }, notes: { type: 'string' } }, required: ['concept', 'amount', 'category'] } } },
+    { type: 'function', function: { name: 'get_expenses', description: 'Get expense summary by period/category', parameters: { type: 'object', properties: { category: { type: 'string' }, period: { type: 'string', enum: ['today', 'this_week', 'this_month', 'last_month', 'all'] } } } } },
+
+    // ── Memory ───────────────────────────────────────
+    { type: 'function', function: { name: 'save_memory', description: 'Save a fact, preference, or info about a person that Kaira should remember forever.', parameters: { type: 'object', properties: { category: { type: 'string', enum: ['preference', 'fact', 'person', 'health', 'important', 'learning'], description: 'learning=something new the user learned or discovered' }, key: { type: 'string' }, value: { type: 'string' } }, required: ['category', 'key', 'value'] } } },
+    { type: 'function', function: { name: 'recall_memory', description: 'Search persistent memory', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } } },
+
+    // ── Lists ────────────────────────────────────────
+    { type: 'function', function: { name: 'manage_list', description: 'Create and manage personal lists: shopping lists (lista de la compra), packing lists, wish lists, any custom list. Actions: create (new list), add (add items), get (view list), check (mark item done), remove_item (remove item), delete_list (delete entire list).', parameters: { type: 'object', properties: { action: { type: 'string', enum: ['create', 'add', 'get', 'check', 'remove_item', 'delete_list'] }, list_name: { type: 'string', description: 'Name of the list (e.g. "Lista de la compra", "Packing list", "Gastos mensuales")' }, items: { type: 'array', items: { type: 'string' }, description: 'Items to add (for action=add)' }, item_text: { type: 'string', description: 'Specific item text (for check/remove_item)' } }, required: ['action', 'list_name'] } } },
+
+    // ── Activity Log / Diary ─────────────────────────
+    { type: 'function', function: { name: 'log_activity', description: 'Log an activity to the diary', parameters: { type: 'object', properties: { activity: { type: 'string' }, category: { type: 'string' }, date: { type: 'string' }, notes: { type: 'string' } }, required: ['activity'] } } },
+    { type: 'function', function: { name: 'get_activity_summary', description: 'Get activity diary summary', parameters: { type: 'object', properties: { category: { type: 'string' }, period: { type: 'string', enum: ['today', 'this_week', 'this_month', 'last_month', 'last_7_days', 'last_30_days'] }, search: { type: 'string' } }, required: ['period'] } } },
+
+    // ── Saved Content ────────────────────────────────
+    { type: 'function', function: { name: 'save_content', description: 'Save a link/video/post for later review', parameters: { type: 'object', properties: { title: { type: 'string' }, url: { type: 'string' }, topic: { type: 'string' }, source: { type: 'string' }, notes: { type: 'string' } }, required: ['title'] } } },
+    { type: 'function', function: { name: 'get_saved_content', description: 'Get saved content (Watch Later). Default shows only unreviewed. Set only_unreviewed=false to include already watched/reviewed content too.', parameters: { type: 'object', properties: { topic: { type: 'string' }, only_unreviewed: { type: 'boolean', description: 'true=only pending (default), false=show ALL including already watched' } } } } },
+    { type: 'function', function: { name: 'mark_content_reviewed', description: 'Mark saved content as reviewed', parameters: { type: 'object', properties: { search_title: { type: 'string' } }, required: ['search_title'] } } },
+
+    // ── Recurring Reminders ──────────────────────────
+    { type: 'function', function: { name: 'create_recurring', description: 'Create a recurring/periodic reminder. Perfect for subscription payments, monthly bills, weekly reviews, daily habits. Examples: "cobro Netflix" monthly day 15, "pagar VPS" monthly day 1.', parameters: { type: 'object', properties: { text: { type: 'string' }, frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'weekdays'], description: 'daily=every day, weekly=specific day of week, monthly=specific day of month, weekdays=Mon-Fri' }, day_of_week: { type: 'number', description: '0=Sunday, 1=Monday...6=Saturday. Required for weekly.' }, day_of_month: { type: 'number', description: '1-31. Required for monthly.' } }, required: ['text', 'frequency'] } } },
+    { type: 'function', function: { name: 'list_recurring', description: 'List all active recurring/periodic reminders (subscriptions, bills, habits)', parameters: { type: 'object', properties: {} } } },
+
+    // ── Web Search ───────────────────────────────────
+    { type: 'function', function: { name: 'web_search', description: 'Search the web for information', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } } },
+
+    // ── URL Summarizer ────────────────────────────────
+    { type: 'function', function: { name: 'summarize_url', description: 'Fetch a web page URL, extract the article text, and summarize it in 3-5 bullet points. Also saves it to Watch Later with the summary. Use when the user sends a URL and asks to read/summarize it, or says "lee esto", "resume esto", "qué dice este link".', parameters: { type: 'object', properties: { url: { type: 'string', description: 'The URL to fetch and summarize' }, topic: { type: 'string', description: 'Category: IA, Trading, Dev, Crypto, Bets, Health, Productivity, Personal, General' } }, required: ['url'] } } },
+
+    // ── Inbox Management ────────────────────────────────
+    { type: 'function', function: { name: 'process_inbox', description: 'Delete or mark as processed an inbox item by text match. Use when the user says to clear, delete, or process something from inbox.', parameters: { type: 'object', properties: { search_text: { type: 'string' }, action: { type: 'string', enum: ['delete', 'process'], description: 'delete=remove completely, process=mark as processed' } }, required: ['search_text'] } } },
+
+    // ── Full Day History ─────────────────────────────────
+    { type: 'function', function: { name: 'get_day_history', description: 'Get EVERYTHING that happened on a date or date range: journals, completed items, daily plan, activities, expenses, inbox, saved content, reminders/tasks created, notes. Use when user asks "what happened on X", "what did I do last week", "summary of Tuesday".', parameters: { type: 'object', properties: { date: { type: 'string', description: 'Single date YYYY-MM-DD' }, date_from: { type: 'string', description: 'Range start YYYY-MM-DD' }, date_to: { type: 'string', description: 'Range end YYYY-MM-DD' } } } } },
+
+    // ── Completed History ───────────────────────────────
+    { type: 'function', function: { name: 'get_completed', description: 'Get completed items history. Shows what was accomplished. Use when user asks "what did I finish?", "completed tasks", "history".', parameters: { type: 'object', properties: { period: { type: 'string', enum: ['today', 'this_week', 'this_month', 'last_7_days', 'all'], description: 'Time period to query' }, date_from: { type: 'string', description: 'Custom range start YYYY-MM-DD' }, date_to: { type: 'string', description: 'Custom range end YYYY-MM-DD' }, category: { type: 'string', description: 'Filter by type (Task/Reminder)' }, limit: { type: 'number', description: 'Max items to return, default 20' } } } } },
+
+    // ── Edit Task ───────────────────────────────────────
+    { type: 'function', function: { name: 'edit_task', description: 'Edit an existing task text, deadline, category, or priority without deleting it. Preserves the task ID and project link.', parameters: { type: 'object', properties: { search_text: { type: 'string', description: 'Current task text to find' }, new_text: { type: 'string' }, deadline: { type: 'string', description: 'YYYY-MM-DD or null to remove' }, category: { type: 'string' }, priority: { type: 'string', enum: ['green', 'yellow', 'red'] } }, required: ['search_text'] } } },
+
+    // ── Edit Reminder ───────────────────────────────────
+    { type: 'function', function: { name: 'edit_reminder', description: 'Edit an existing reminder text, due date, time, category, or priority without deleting it. Preserves the reminder ID.', parameters: { type: 'object', properties: { search_text: { type: 'string', description: 'Current reminder text to find' }, new_text: { type: 'string' }, due_date: { type: 'string', description: 'YYYY-MM-DD or null to remove' }, due_time: { type: 'string', description: 'HH:MM (24h) or null to remove time' }, category: { type: 'string' }, priority: { type: 'string', enum: ['green', 'yellow', 'red'] } }, required: ['search_text'] } } },
+
+    // ── Delete Daily Plan Item ──────────────────────────
+    { type: 'function', function: { name: 'delete_plan_item', description: 'Delete a daily plan item by text match. Use when user wants to remove something from today plan.', parameters: { type: 'object', properties: { search_text: { type: 'string' } }, required: ['search_text'] } } },
+
+    // ── Day Sessions (4-block daily structure) ──────────
+    { type: 'function', function: { name: 'set_day_session', description: 'ADD a new item to a day session slot. Each slot can have multiple items. Slots: morning (08-11:30), afternoon (11:30-14:30), evening (17-19:30), night/early night (19:30-23). Does NOT replace existing items — adds alongside them.', parameters: { type: 'object', properties: { slot: { type: 'string', enum: ['morning', 'afternoon', 'evening', 'night'], description: 'morning=08-11:30, afternoon=11:30-14:30, evening=17-19:30, night(=early night)=19:30-23' }, domain: { type: 'string', enum: ['Trading', 'Dev', 'Bets', 'IA', 'Personal', 'Estudio'], description: 'Estudio = learning, research, courses, watching Watch Later content, reading' }, project_id: { type: 'string', description: 'UUID of related project (optional)' }, focus_text: { type: 'string', description: 'What to focus on (specific task, project, goal)' }, date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } }, required: ['slot', 'domain', 'focus_text'] } } },
+    { type: 'function', function: { name: 'edit_day_session', description: 'Edit an existing item in the day plan by searching its focus_text. Use to change slot, domain, or text of an existing item.', parameters: { type: 'object', properties: { search_text: { type: 'string', description: 'Text to search for in focus_text of existing items' }, slot: { type: 'string', enum: ['morning', 'afternoon', 'evening', 'night'], description: 'New slot (to move item)' }, domain: { type: 'string', enum: ['Trading', 'Dev', 'Bets', 'IA', 'Personal', 'Estudio'] }, focus_text: { type: 'string', description: 'New focus text' }, date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } }, required: ['search_text'] } } },
+    { type: 'function', function: { name: 'delete_day_session_item', description: 'Delete a specific item from the day plan by searching its focus_text.', parameters: { type: 'object', properties: { search_text: { type: 'string', description: 'Text to search in focus_text' }, date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } }, required: ['search_text'] } } },
+    { type: 'function', function: { name: 'clear_day_session', description: 'Clear ALL items from a day session slot. Use when user wants to empty an entire time block.', parameters: { type: 'object', properties: { slot: { type: 'string', enum: ['morning', 'afternoon', 'evening', 'night'], description: 'morning, afternoon, evening, night (=early night)' }, date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } }, required: ['slot'] } } },
+    { type: 'function', function: { name: 'build_day_sessions', description: 'Analyze all office state (deadlines, overdue, priorities, projects, watch later, inbox, tasks) and propose a structured day plan with 4 sessions. ALWAYS call this first, then use set_day_session for each slot. Detects study needs: if inbox/tasks contain research/learning items or Watch Later has 5+ pending items, recommends an Estudio session. Use when user asks to plan the day, or when morning briefing Build Plan button is pressed.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } } } } },
+    { type: 'function', function: { name: 'get_day_sessions', description: 'Get the current day plan sessions. Shows the 4 time blocks and what is assigned to each.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD, defaults to today' } } } } },
+
+    // ── Project Notes (mini-journal per project) ────────
+    { type: 'function', function: { name: 'add_project_note', description: 'Add a note/log entry to a project. Works as a mini-journal for tracking project progress, decisions, blockers, ideas. Use when user talks about how a project is going, mentions progress, decisions, or wants to document something about a specific project.', parameters: { type: 'object', properties: { search_name: { type: 'string', description: 'Project name to search' }, content: { type: 'string', description: 'The note content. Expand brief voice notes into detailed entries.' } }, required: ['search_name', 'content'] } } },
+    { type: 'function', function: { name: 'get_project_notes', description: 'Get the note/log history for a project. Shows progress timeline.', parameters: { type: 'object', properties: { search_name: { type: 'string' }, limit: { type: 'number', description: 'Max notes to return, default 10' } }, required: ['search_name'] } } },
 ];

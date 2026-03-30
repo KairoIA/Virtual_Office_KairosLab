@@ -5,10 +5,34 @@
 
 import { Router } from 'express';
 import { transcribe } from '../services/stt.js';
-import { processMessage } from '../services/ai.js';
+import { processMessage, getTokenUsage } from '../services/ai.js';
 import { streamTTS } from '../services/tts.js';
 
 const router = Router();
+
+// ── API Error Classifier ────────────────────────────
+function classifyApiError(service, err) {
+    const msg = (err.message || '').toLowerCase();
+    const status = err.status || err.statusCode || 0;
+
+    // Insufficient funds / quota exceeded
+    if (status === 402 || status === 429 || msg.includes('quota') || msg.includes('insufficient') || msg.includes('billing') || msg.includes('credit') || msg.includes('exceeded') || msg.includes('rate_limit')) {
+        const links = {
+            openai: 'platform.openai.com/account/billing',
+            anthropic: 'console.anthropic.com/settings/billing',
+            elevenlabs: 'elevenlabs.io/subscription',
+        };
+        return `Sin saldo en ${service.toUpperCase()}. Recarga en ${links[service] || service}`;
+    }
+
+    // Auth errors
+    if (status === 401 || msg.includes('auth') || msg.includes('api_key') || msg.includes('invalid_api_key')) {
+        return `API key inválida para ${service.toUpperCase()}. Revisa tu .env`;
+    }
+
+    // Generic
+    return `Error en ${service.toUpperCase()}: ${err.message}`;
+}
 
 /**
  * POST /api/voice/transcribe
@@ -34,7 +58,8 @@ router.post('/transcribe', async (req, res) => {
         res.json({ text });
     } catch (err) {
         console.error('[STT] Error:', err);
-        res.status(500).json({ error: err.message });
+        const msg = classifyApiError('openai', err);
+        res.status(500).json({ error: msg, api_error: true });
     }
 });
 
@@ -61,7 +86,8 @@ router.post('/chat', async (req, res) => {
         res.json({ response, functions_called: functionsCalled });
     } catch (err) {
         console.error('[AI] Error:', err);
-        res.status(500).json({ error: err.message });
+        const msg = classifyApiError('anthropic', err);
+        res.status(500).json({ error: msg, api_error: true });
     }
 });
 
@@ -92,7 +118,8 @@ router.post('/chat-stream', async (req, res) => {
         );
         res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
     } catch (err) {
-        res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+        const msg = classifyApiError('anthropic', err);
+        res.write(`data: ${JSON.stringify({ type: 'error', message: msg, api_error: true })}\n\n`);
     }
     res.end();
 });
@@ -102,8 +129,12 @@ router.post('/chat-stream', async (req, res) => {
  * Body: { text: "text to speak" }
  * Returns: audio/mpeg stream
  */
+function cleanForTTS(t) {
+    return t.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 router.post('/tts', async (req, res) => {
-    const { text } = req.body;
+    const text = cleanForTTS(req.body?.text || '');
     if (!text) return res.status(400).json({ error: 'text required' });
 
     res.setHeader('Content-Type', 'audio/mpeg');
@@ -118,9 +149,34 @@ router.post('/tts', async (req, res) => {
     } catch (err) {
         console.error('[TTS] Error:', err);
         if (!res.headersSent) {
-            res.status(500).json({ error: err.message });
+            const msg = classifyApiError('elevenlabs', err);
+            res.status(500).json({ error: msg, api_error: true });
         }
     }
+});
+
+// ── ConvAI signed URL endpoint ──────────────────────
+router.get('/convai-token', async (req, res) => {
+    const agentId = process.env.ELEVENLABS_AGENT_ID;
+    if (!agentId) return res.status(500).json({ error: 'ELEVENLABS_AGENT_ID not configured' });
+
+    try {
+        const response = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`,
+            { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY } }
+        );
+        if (!response.ok) return res.status(500).json({ error: 'Failed to get signed URL' });
+        const body = await response.json();
+        res.json({ signedUrl: body.signed_url });
+    } catch (err) {
+        console.error('[CONVAI] Token error:', err.message);
+        res.status(500).json({ error: 'Failed to get signed URL' });
+    }
+});
+
+// ── Token usage endpoint ────────────────────────────
+router.get('/usage', (req, res) => {
+    res.json(getTokenUsage());
 });
 
 export default router;

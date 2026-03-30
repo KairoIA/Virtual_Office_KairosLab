@@ -66,6 +66,7 @@ export function renderCalendar() {
     const entries   = Storage.getJournal();
     const reminders = Storage.getReminders();
     const completed = Storage.getCompleted();
+    const tasks     = Storage.getTasks();
 
     // Empty cells before first day
     for (let i = 0; i < startDay; i++) {
@@ -85,10 +86,12 @@ export function renderCalendar() {
 
         const remsToday = reminders.filter(t => t.dueDate === k && !t.done);
         const doneToday = completed.filter(t => t.date === k);
+        const tasksToday = tasks.filter(t => t.deadline === k && !t.done);
+        const hasJournal = !!entries[k];
         const isToday = (d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
 
         const card = document.createElement('div');
-        card.className = `day-card ${entries[k] ? 'has-log' : ''} ${isToday ? 'is-today' : ''}`;
+        card.className = `day-card ${hasJournal ? 'has-log' : ''} ${isToday ? 'is-today' : ''}`;
         card.dataset.dateKey = k;
         card.dataset.day = d;
 
@@ -99,9 +102,16 @@ export function renderCalendar() {
             indicators += '<span class="warning-icon">\u26A0\uFE0F</span>';
             tooltipText += `<strong>\u26A0\uFE0F DEADLINE:</strong><br>${remsToday.map(t => '\u2022 ' + t.text).join('<br>')}<br>`;
         }
+        if (tasksToday.length > 0) {
+            indicators += '<span class="task-icon">\uD83D\uDCCB</span>';
+            tooltipText += `<strong>\uD83D\uDCCB TASKS:</strong><br>${tasksToday.map(t => '\u2022 ' + t.text).join('<br>')}<br>`;
+        }
         if (doneToday.length > 0) {
             indicators += '<span class="success-icon">\u2705</span>';
             tooltipText += `<strong>\u2705 COMPLETED:</strong><br>${doneToday.map(t => '\u2022 ' + t.text).join('<br>')}`;
+        }
+        if (hasJournal) {
+            indicators += '<span class="journal-icon">\uD83D\uDCD3</span>';
         }
 
         const tooltip = tooltipText ? `<div class="tooltip-popup">${tooltipText}</div>` : '';

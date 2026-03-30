@@ -14,6 +14,18 @@ export async function streamTTS(text, onAudioChunk, onDone = null) {
     const voiceId = process.env.ELEVENLABS_VOICE_ID;
     const apiKey = process.env.ELEVENLABS_API_KEY;
 
+    const body = {
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.3,
+            use_speaker_boost: true,
+        },
+        output_format: 'mp3_44100_128',
+    };
+
     const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
         {
@@ -22,17 +34,7 @@ export async function streamTTS(text, onAudioChunk, onDone = null) {
                 'Content-Type': 'application/json',
                 'xi-api-key': apiKey,
             },
-            body: JSON.stringify({
-                text,
-                model_id: 'eleven_multilingual_v2',
-                voice_settings: {
-                    stability: 0.5,
-                    similarity_boost: 0.75,
-                    style: 0.3,
-                    use_speaker_boost: true,
-                },
-                output_format: 'mp3_44100_128',
-            }),
+            body: JSON.stringify(body),
         }
     );
 

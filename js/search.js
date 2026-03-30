@@ -1,12 +1,26 @@
 /**
  * KAIROS Search Module
- * Global search across journal, reminders, and tasks
+ * Global search across journal, reminders, tasks, projects, inbox, and notes
  */
 
 import { Storage }      from './storage.js';
 import { jumpToDate }   from './calendar.js';
-import { openJournal }  from './journal.js';
-import { toggleSidePanel } from './tasks.js';
+
+const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+
+// Cache notes so we don't fetch on every keystroke
+let notesCache = null;
+let notesFetchPromise = null;
+
+function fetchNotes() {
+    if (notesCache !== null) return Promise.resolve(notesCache);
+    if (notesFetchPromise) return notesFetchPromise;
+    notesFetchPromise = fetch(`${API}/api/notes`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => { notesCache = Array.isArray(data) ? data : []; return notesCache; })
+        .catch(() => { notesCache = []; return notesCache; });
+    return notesFetchPromise;
+}
 
 export function initSearch() {
     const input = document.getElementById('searchInput');
@@ -20,9 +34,12 @@ export function initSearch() {
             document.getElementById('searchResults').style.display = 'none';
         }
     });
+
+    // Pre-fetch notes on init
+    fetchNotes();
 }
 
-function handleSearch() {
+async function handleSearch() {
     const q   = document.getElementById('searchInput').value.toLowerCase();
     const box = document.getElementById('searchResults');
     if (!q) { box.style.display = 'none'; return; }
@@ -30,6 +47,8 @@ function handleSearch() {
     const journal   = Storage.getJournal();
     const reminders = Storage.getReminders();
     const tasks     = Storage.getTasks();
+    const projects  = Storage.getProjects();
+    const inbox     = Storage.getInbox();
     const results   = [];
 
     // Search journal entries
@@ -43,9 +62,8 @@ function handleSearch() {
                 date: key,
                 text,
                 action: () => {
-                    jumpToDate(key);
-                    const day = parseInt(key.split('-')[2]);
-                    openJournal(day, key);
+                    window.switchToView('journal');
+                    setTimeout(() => window.selectJournalDate(key), 300);
                 },
             });
         }
@@ -54,7 +72,7 @@ function handleSearch() {
     // Search reminders
     reminders.forEach(x => {
         if (x.text.toLowerCase().includes(q)) {
-            const fn = x.dueDate ? () => jumpToDate(x.dueDate) : () => toggleSidePanel(true);
+            const fn = x.dueDate ? () => jumpToDate(x.dueDate) : () => window.switchToView('tasksview');
             results.push({ type: '\uD83D\uDD14 REMINDER', date: x.dueDate || '--', text: x.text, action: fn });
         }
     });
@@ -62,9 +80,53 @@ function handleSearch() {
     // Search tasks
     tasks.forEach(x => {
         if (x.text.toLowerCase().includes(q)) {
-            results.push({ type: '\uD83D\uDCCB TASK', date: 'Backlog', text: x.text, action: () => toggleSidePanel(true) });
+            results.push({ type: '\uD83D\uDCCB TASK', date: 'Backlog', text: x.text, action: () => window.switchToView('tasksview') });
         }
     });
+
+    // Search projects (name, objective, notes)
+    projects.forEach(p => {
+        const searchable = [p.name || '', p.objective || '', p.notes || '', p.next_action || ''].join(' ').toLowerCase();
+        if (searchable.includes(q)) {
+            results.push({
+                type: '\uD83D\uDCBC PROJECT',
+                date: p.status || '--',
+                text: p.name + (p.objective ? ' — ' + p.objective : ''),
+                action: () => window.switchToView('projects'),
+            });
+        }
+    });
+
+    // Search inbox items (text field)
+    inbox.forEach(item => {
+        const text = (item.text || '').toLowerCase();
+        if (text.includes(q)) {
+            results.push({
+                type: '\uD83D\uDCE5 INBOX',
+                date: item.created_at ? item.created_at.split('T')[0] : '--',
+                text: item.text,
+                action: () => window.switchToView('inbox'),
+            });
+        }
+    });
+
+    // Search notes (fetched from API)
+    try {
+        const notes = await fetchNotes();
+        notes.forEach(n => {
+            const text = (n.text || n.content || '').toLowerCase();
+            if (text.includes(q)) {
+                results.push({
+                    type: '\uD83D\uDDD2 NOTE',
+                    date: n.created_at ? n.created_at.split('T')[0] : '--',
+                    text: n.text || n.content || '',
+                    action: () => window.switchToView('hq'),
+                });
+            }
+        });
+    } catch {
+        // Notes fetch failed, skip silently
+    }
 
     box.innerHTML = '';
     if (results.length > 0) {

@@ -23,10 +23,9 @@ export async function transcribe(audioBuffer, format = 'webm') {
 
     try {
         const transcription = await openai.audio.transcriptions.create({
-            model: 'whisper-1',
+            model: 'gpt-4o-transcribe',
             file: fs.createReadStream(tmpPath),
-            language: 'es',
-            prompt: 'Trading, MetaTrader, EA, StrategyQuant, portfolio, drawdown, backtesting, SQX, MCT',
+            prompt: 'Kaira, KairosLab, Javi. Trading: MetaTrader 5, MT5, Expert Advisor, EA, StrategyQuant, SQX, MCT, portfolio, drawdown, backtesting, DAX, XAUUSD, GBPAUD, USDJPY, EURCHF, XTIUSD, TradingView, Polymarket. IA y desarrollo: Claude, GPT, API, backend, frontend, Node.js, Python, Supabase, Cloudflare, GitHub, deploy, servidor, VPS. Vida cotidiana: recordatorio, tarea, agenda, compras, recados, estudios, apuestas, gimnasio, cita, llamar, pagar, enviar, investigar. English: reminder, task, schedule, meeting, what time, how much, tell me about, search for.',
         });
 
         return transcription.text;

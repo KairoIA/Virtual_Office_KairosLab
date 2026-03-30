@@ -14,10 +14,10 @@ let draggedItem = null;
 let draggedSource = null;
 
 export function initTasks() {
-    initPanelIconPickers();
+    if (document.getElementById('reminderList')) initPanelIconPickers();
     renderReminders();
     renderGenTasks();
-    setupResizer();
+    if (document.getElementById('resizeHandle')) setupResizer();
 
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.icon-dropdown-wrapper')) {
@@ -168,6 +168,7 @@ function renderList(type, listId) {
     const isReminder = type === 'reminders';
     const list = isReminder ? Storage.getReminders() : Storage.getTasks();
     const el = document.getElementById(listId);
+    if (!el) return;
     el.innerHTML = '';
 
     list.forEach((item, i) => {
