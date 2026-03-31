@@ -11,7 +11,7 @@ import { renderReminders, renderGenTasks } from './tasks.js';
 import { initSearch }         from './search.js';
 import { Storage }            from './storage.js';
 import { connectVoice, sendTextMessage, toggleRecording, toggleRecordingVoice, toggleRecordingText, setOnDataChanged } from './assistant.js';
-import { initHQ, renderHQ, toggleSessionDone, clearSession } from './hq.js';
+import { initHQ, renderHQ, toggleSessionDone, clearSession, addSessionItem, editSessionItem, saveSessionEdit } from './hq.js';
 import { initProjects, renderProjects, openProjectModal, closeProjectModal, saveProjectFromModal, editProject, toggleProjectStatus, completeProject, deleteProject, toggleProjectNotes, addProjectNote, deleteProjectNote, toggleProjectTasks, loadProjectTasks, addProjectTask, toggleProjectTask, editProjectTask, saveProjectTaskEdit, deleteProjectTask } from './projects.js';
 import { initInbox, renderInbox, captureToInbox, processInboxItem, deleteInboxItem } from './inbox.js';
 import { initLibrary, renderLibrary, markLibraryReviewed, deleteLibraryItem } from './library.js';
@@ -20,7 +20,7 @@ import { initJournalTab, renderJournalTab, saveJournalFromTab, deleteJournal, se
 import { initSwipe }              from './swipe.js';
 import { initTasksView, renderTasksView } from './tasksView.js';
 import { initListsView, renderListsView, toggleListItem, removeListItem, addListItem, deleteList } from './listsView.js';
-import { openDayDetail, closeDayDetail, dayDetailComplete, dayDetailDelete, dayDetailEdit } from './dayDetail.js';
+import { openDayDetail, closeDayDetail, dayDetailComplete, dayDetailDelete, dayDetailEdit, dayDetailAdd, dayDetailToggle } from './dayDetail.js';
 
 // ── Navigation ───────────────────────────────────────────
 let currentView = 'hq';
@@ -144,6 +144,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
+
+    // ── Cursor persistence for contenteditable fields ───
+    // Save and restore selection when window loses/gains focus
+    let savedSelection = null;
+    let savedActiveElement = null;
+
+    document.addEventListener('focusout', (e) => {
+        const el = e.target;
+        if (el && el.getAttribute && el.getAttribute('contenteditable') === 'true') {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                savedSelection = sel.getRangeAt(0).cloneRange();
+                savedActiveElement = el;
+            }
+        }
+    });
+
+    window.addEventListener('focus', () => {
+        if (savedSelection && savedActiveElement) {
+            // Only restore if the element is still in the DOM and visible
+            if (document.body.contains(savedActiveElement) && savedActiveElement.offsetParent !== null) {
+                try {
+                    savedActiveElement.focus();
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(savedSelection);
+                } catch { /* ignore if range is stale */ }
+            }
+        }
+    });
 });
 
 // ── Calendar day clicks ──────────────────────────────────
@@ -339,6 +369,8 @@ window.closeDayDetail       = closeDayDetail;
 window.dayDetailComplete    = dayDetailComplete;
 window.dayDetailDelete      = dayDetailDelete;
 window.dayDetailEdit        = dayDetailEdit;
+window.dayDetailAdd         = dayDetailAdd;
+window.dayDetailToggle      = dayDetailToggle;
 
 // Close day detail modal on overlay background click
 document.addEventListener('click', (e) => {
@@ -347,7 +379,10 @@ document.addEventListener('click', (e) => {
 
 // HQ
 window.toggleSessionDone = toggleSessionDone;
-window.clearSession    = clearSession;
+window.clearSession      = clearSession;
+window.addSessionItem    = addSessionItem;
+window.editSessionItem   = editSessionItem;
+window.saveSessionEdit   = saveSessionEdit;
 
 // Projects
 window.openProjectModal     = openProjectModal;
@@ -415,7 +450,21 @@ window.handleSend = function () {
     if (input.value.trim()) {
         sendTextMessage(input.value.trim());
         input.value = '';
+        input.style.height = 'auto';
     }
+};
+window.handleChatKeydown = function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+    }
+    // Shift+Enter: default textarea behavior (new line)
+    // Auto-resize textarea
+    setTimeout(() => {
+        const input = e.target;
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    }, 0);
 };
 window.handleMic = function () {
     toggleRecording();

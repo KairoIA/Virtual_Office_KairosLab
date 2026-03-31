@@ -31,7 +31,7 @@
         <button class="nav-tab" data-view="tasksview">&#128203; Tasks</button>
         <button class="nav-tab" data-view="listsview">&#128221; Lists</button>
         <button class="nav-tab" data-view="calendar">&#128197; Calendar</button>
-        <button class="nav-tab" data-view="inbox">&#128229; Inbox</button>
+        <button class="nav-tab" data-view="inbox">&#128204; Post-it</button>
         <button class="nav-tab" data-view="library">&#127916; Watch Later</button>
         <button class="nav-tab" data-view="journal">&#128221; Journal</button>
         <button class="nav-tab" data-view="stats">&#128202; Stats</button>
@@ -179,7 +179,7 @@
 <!-- ══════════════════════════════════════════════════ -->
 <div class="view" id="view-inbox">
     <div class="inbox-header">
-        <h2>&#128229; INBOX</h2>
+        <h2>&#128204; POST-IT AREA</h2>
         <span class="inbox-count" id="inboxCount">0</span>
     </div>
     <div class="inbox-capture">
@@ -383,7 +383,7 @@
     <div class="assistant-input">
         <button id="micVoice" class="mic-btn mic-voice" onclick="handleMicVoice()" title="Nota de voz → Kaira responde en AUDIO">&#127908;</button>
         <button id="micText" class="mic-btn mic-text" onclick="handleMicText()" title="Nota de voz → Kaira responde en TEXTO">&#127908;</button>
-        <input type="text" id="chatInput" placeholder="Habla con Kaira..." onkeydown="if(event.key==='Enter') handleSend()">
+        <textarea id="chatInput" placeholder="Habla con Kaira..." rows="1" onkeydown="handleChatKeydown(event)"></textarea>
         <button class="send-btn" onclick="handleSend()">&#10148;</button>
     </div>
 </div>

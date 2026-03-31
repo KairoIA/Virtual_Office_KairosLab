@@ -69,41 +69,46 @@ async function renderDaySessions() {
             const div = document.createElement('div');
             div.className = `session-block ${items.length ? 'session-filled' : 'session-empty'}`;
 
+            const primaryColor = items.length ? (DOMAIN_COLORS[items[0].domain] || '#8b949e') : '#8b949e';
             if (items.length) {
-                const primaryColor = DOMAIN_COLORS[items[0].domain] || '#8b949e';
                 div.style.borderLeftColor = primaryColor;
                 div.style.background = `linear-gradient(90deg, ${primaryColor}12, transparent)`;
-
-                const itemsHtml = items.map(s => {
-                    const color = DOMAIN_COLORS[s.domain] || '#8b949e';
-                    const doneClass = s.done ? ' session-item-done' : '';
-                    return `<div class="session-item${doneClass}">
-                        <button class="session-item-tick" onclick="toggleSessionDone('${s.id}', ${!s.done})" title="${s.done ? 'Reactivar' : 'Completar'}">${s.done ? '\u2705' : '\u2B1C'}</button>
-                        <span class="session-domain" style="color:${color}">${s.domain}</span>
-                        ${s.projects?.name ? `<span class="session-project">\u{1F4C1} ${s.projects.name}</span>` : ''}
-                        ${s.focus_text ? `<span class="session-focus">${s.focus_text}</span>` : ''}
-                        <button class="session-item-del" onclick="clearSession('${s.id}')" title="Eliminar">\u2716</button>
-                    </div>`;
-                }).join('');
-
-                div.innerHTML = `
-                    <div class="session-header">
-                        <span class="session-icon">${meta.icon}</span>
-                        <span class="session-label">${meta.label}</span>
-                        <span class="session-time">${meta.time}</span>
-                    </div>
-                    <div class="session-body">${itemsHtml}</div>
-                `;
-            } else {
-                div.innerHTML = `
-                    <div class="session-header">
-                        <span class="session-icon">${meta.icon}</span>
-                        <span class="session-label">${meta.label}</span>
-                        <span class="session-time">${meta.time}</span>
-                    </div>
-                    <div class="session-body session-empty-text">Sin asignar</div>
-                `;
             }
+
+            const itemsHtml = items.map(s => {
+                const color = DOMAIN_COLORS[s.domain] || '#8b949e';
+                const doneClass = s.done ? ' session-item-done' : '';
+                return `<div class="session-item${doneClass}">
+                    <button class="session-item-tick" onclick="toggleSessionDone('${s.id}', ${!s.done})" title="${s.done ? 'Reactivar' : 'Completar'}">${s.done ? '\u2705' : '\u2B1C'}</button>
+                    <span class="session-domain" style="color:${color}">${s.domain}</span>
+                    ${s.projects?.name ? `<span class="session-project">\u{1F4C1} ${s.projects.name}</span>` : ''}
+                    ${s.focus_text ? `<span class="session-focus">${s.focus_text}</span>` : ''}
+                    <button class="session-item-edit" onclick="editSessionItem('${s.id}', '${slot}', '${s.domain}', \`${(s.focus_text || '').replace(/`/g, '\\`')}\`)" title="Editar">\u270F\uFE0F</button>
+                    <button class="session-item-del" onclick="clearSession('${s.id}')" title="Eliminar">\u2716</button>
+                </div>`;
+            }).join('');
+
+            // Add item form
+            const addFormHtml = `<div class="session-add-form" id="addForm-${slot}" style="display:none;">
+                <select class="session-add-domain" id="addDomain-${slot}">
+                    <option value="Trading">Trading</option><option value="Dev">Dev</option><option value="Bets">Bets</option>
+                    <option value="IA">IA</option><option value="Personal">Personal</option><option value="Estudio">Estudio</option>
+                </select>
+                <input type="text" class="session-add-input" id="addText-${slot}" placeholder="Foco..." onkeydown="if(event.key==='Enter') addSessionItem('${slot}')">
+                <button class="session-add-confirm" onclick="addSessionItem('${slot}')">\u2714</button>
+                <button class="session-add-cancel" onclick="document.getElementById('addForm-${slot}').style.display='none'">\u2716</button>
+            </div>`;
+
+            div.innerHTML = `
+                <div class="session-header">
+                    <span class="session-icon">${meta.icon}</span>
+                    <span class="session-label">${meta.label}</span>
+                    <span class="session-time">${meta.time}</span>
+                    <button class="session-add-btn" onclick="document.getElementById('addForm-${slot}').style.display='flex'" title="A\u00F1adir item">+</button>
+                </div>
+                <div class="session-body">${itemsHtml || '<div class="session-empty-text">Sin asignar</div>'}</div>
+                ${addFormHtml}
+            `;
             el.appendChild(div);
         }
     } catch {
@@ -116,13 +121,15 @@ async function buildDaySessions() {
     if (btn) { btn.disabled = true; btn.textContent = '\u23F3 Building...'; }
 
     try {
-        const res = await fetch(`${API}/api/voice/chat`, {
+        const res = await fetch(`${API}/api/day-sessions/build`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: 'Build my day plan for today. Use build_day_sessions to analyze, then call set_day_session for each of the 4 slots.' }),
         });
         const data = await res.json();
         console.log('[HQ] Build day sessions response:', data);
+        if (data.error) {
+            console.error('[HQ] Build error:', data.error);
+        }
         renderDaySessions();
     } catch (err) {
         console.error('[HQ] Build error:', err);
@@ -133,6 +140,51 @@ async function buildDaySessions() {
 
 export async function clearSession(id) {
     await fetch(`${API}/api/day-sessions/${id}`, { method: 'DELETE' });
+    renderDaySessions();
+}
+
+export async function addSessionItem(slot) {
+    const domain = document.getElementById(`addDomain-${slot}`)?.value || 'Personal';
+    const text = document.getElementById(`addText-${slot}`)?.value?.trim();
+    if (!text) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    await fetch(`${API}/api/day-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date_key: today, slot, domain, focus_text: text }),
+    });
+    renderDaySessions();
+}
+
+export async function editSessionItem(id, slot, domain, focusText) {
+    const itemEl = document.querySelector(`[onclick*="editSessionItem('${id}'"]`)?.closest('.session-item');
+    if (!itemEl) return;
+
+    const origHtml = itemEl.innerHTML;
+    itemEl.innerHTML = `
+        <select class="session-add-domain" id="editDomain-${id}">
+            ${['Trading', 'Dev', 'Bets', 'IA', 'Personal', 'Estudio'].map(d =>
+                `<option value="${d}" ${d === domain ? 'selected' : ''}>${d}</option>`
+            ).join('')}
+        </select>
+        <input type="text" class="session-add-input" id="editText-${id}" value="${focusText}" onkeydown="if(event.key==='Enter') saveSessionEdit('${id}'); if(event.key==='Escape') renderHQ();">
+        <button class="session-add-confirm" onclick="saveSessionEdit('${id}')">\u2714</button>
+        <button class="session-add-cancel" onclick="renderHQ()">\u2716</button>
+    `;
+    document.getElementById(`editText-${id}`)?.focus();
+}
+
+export async function saveSessionEdit(id) {
+    const domain = document.getElementById(`editDomain-${id}`)?.value;
+    const focusText = document.getElementById(`editText-${id}`)?.value?.trim();
+    if (!focusText) return;
+
+    await fetch(`${API}/api/day-sessions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, focus_text: focusText }),
+    });
     renderDaySessions();
 }
 
@@ -213,15 +265,25 @@ function radarSection(title, items, color) {
     const prioColors = { red: '\u{1F534}', yellow: '\u{1F7E1}', green: '\u{1F7E2}' };
     const allReminders = Storage.getReminders();
     const allTasks = Storage.getTasks();
+    const projects = Storage.getProjects();
+    const projectMap = {};
+    projects.forEach(p => { projectMap[p.id] = p.name; });
+
     const itemsHtml = items.map(r => {
         const prio = r.priority ? prioColors[r.priority] + ' ' : '';
-        const cat = r.category ? `<span class="radar-cat">[${r.category}]</span>` : '';
+        // Show project name if linked to a project, otherwise show category
+        let catLabel = '';
+        if (r.project_id && projectMap[r.project_id]) {
+            catLabel = `<span class="radar-cat">[${projectMap[r.project_id]}]</span>`;
+        } else if (r.category) {
+            catLabel = `<span class="radar-cat">[${r.category}]</span>`;
+        }
         const typeLabel = r._type === 'T' ? '<span class="radar-cat">[Task]</span>' : '';
         const source = r._type === 'T' ? allTasks : allReminders;
         const idx = source.findIndex(item => item.id === r.id);
         const dateStr = r._date || '';
         return `<div class="radar-item">
-            <div class="radar-item-content">${prio}<span>${r.text}</span>${typeLabel}${cat}${dateStr ? `<span class="radar-date">${dateStr}</span>` : ''}</div>
+            <div class="radar-item-content">${prio}<span>${r.text}</span>${typeLabel}${catLabel}${dateStr ? `<span class="radar-date">${dateStr}</span>` : ''}</div>
             <div class="radar-item-actions">
                 <button class="radar-btn radar-complete" data-idx="${idx}" data-type="${r._type}" title="Completar">\u2714</button>
                 <button class="radar-btn radar-delete" data-idx="${idx}" data-type="${r._type}" title="Borrar">\u2716</button>
@@ -328,7 +390,7 @@ async function renderBriefing() {
         { num: weekItems.length, label: 'This Week', cls: severityCls(weekItems.length), items: weekItems },
         { num: projects.length, label: 'Projects', cls: severityCls(projects.length), items: projectItems },
         { num: allTaskItems.length, label: 'Tasks', cls: severityCls(allTaskItems.length), items: allTaskItems },
-        { num: inbox.length, label: 'Inbox', cls: severityCls(inbox.length), items: inbox.map(i => `\u{1F4E5} ${i.text}`) },
+        { num: inbox.length, label: 'Post-it', cls: severityCls(inbox.length), items: inbox.map(i => `\u{1F4CC} ${i.text}`) },
         { num: watchLaterItems.length, label: 'Watch Later', cls: severityCls(watchLaterItems.length), items: watchLaterItems },
     ];
 

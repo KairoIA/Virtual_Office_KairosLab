@@ -32,16 +32,18 @@ export function openDayDetail(dateKey) {
     if (reminders.length > 0) {
         html += `<div class="dd-section"><div class="dd-section-title">&#128276; REMINDERS (${reminders.length})</div>`;
         reminders.forEach(r => {
-            html += `<div class="dd-item">
-                <div class="dd-item-text">${r.text}</div>
+            const isDone = r.done;
+            html += `<div class="dd-item${isDone ? ' dd-completed' : ''}">
+                <div class="dd-item-text"${isDone ? ' style="text-decoration:line-through;opacity:0.6"' : ''}>${r.text}</div>
                 <div class="dd-item-meta">
                     ${r.category ? `<span class="tv-cat cat-${r.category}">${r.category}</span>` : ''}
+                    ${r.project_id && projMap[r.project_id] ? `<span class="tv-project">&#128193; ${projMap[r.project_id]}</span>` : ''}
                     ${r.priority ? `<span class="tv-prio tv-prio-${r.priority}">&#9679;</span>` : ''}
                 </div>
                 <div class="dd-item-actions">
-                    <button class="tv-btn tv-edit" onclick="dayDetailEdit('reminders','${r.id}','${dateKey}',this)" title="Editar">&#9998;</button>
+                    ${!isDone ? `<button class="tv-btn tv-edit" onclick="dayDetailEdit('reminders','${r.id}','${dateKey}',this)" title="Editar">&#9998;</button>
                     <button class="tv-btn tv-complete" onclick="dayDetailComplete('reminders','${r.id}','${r.text.replace(/'/g, "\\'")}','${dateKey}')" title="Completar">&#10004;</button>
-                    <button class="tv-btn tv-delete" onclick="dayDetailDelete('reminders','${r.id}','${dateKey}')" title="Borrar">&#10006;</button>
+                    <button class="tv-btn tv-delete" onclick="dayDetailDelete('reminders','${r.id}','${dateKey}')" title="Borrar">&#10006;</button>` : ''}
                 </div>
             </div>`;
         });
@@ -52,17 +54,18 @@ export function openDayDetail(dateKey) {
     if (tasks.length > 0) {
         html += `<div class="dd-section"><div class="dd-section-title">&#128203; TASKS (${tasks.length})</div>`;
         tasks.forEach(t => {
-            html += `<div class="dd-item">
-                <div class="dd-item-text">${t.text}</div>
+            const isDone = t.done;
+            html += `<div class="dd-item${isDone ? ' dd-completed' : ''}">
+                <div class="dd-item-text"${isDone ? ' style="text-decoration:line-through;opacity:0.6"' : ''}>${t.text}</div>
                 <div class="dd-item-meta">
                     ${t.category ? `<span class="tv-cat cat-${t.category}">${t.category}</span>` : ''}
                     ${t.project_id && projMap[t.project_id] ? `<span class="tv-project">&#128193; ${projMap[t.project_id]}</span>` : ''}
                     ${t.priority ? `<span class="tv-prio tv-prio-${t.priority}">&#9679;</span>` : ''}
                 </div>
                 <div class="dd-item-actions">
-                    <button class="tv-btn tv-edit" onclick="dayDetailEdit('tasks','${t.id}','${dateKey}',this)" title="Editar">&#9998;</button>
+                    ${!isDone ? `<button class="tv-btn tv-edit" onclick="dayDetailEdit('tasks','${t.id}','${dateKey}',this)" title="Editar">&#9998;</button>
                     <button class="tv-btn tv-complete" onclick="dayDetailComplete('tasks','${t.id}','${t.text.replace(/'/g, "\\'")}','${dateKey}')" title="Completar">&#10004;</button>
-                    <button class="tv-btn tv-delete" onclick="dayDetailDelete('tasks','${t.id}','${dateKey}')" title="Borrar">&#10006;</button>
+                    <button class="tv-btn tv-delete" onclick="dayDetailDelete('tasks','${t.id}','${dateKey}')" title="Borrar">&#10006;</button>` : ''}
                 </div>
             </div>`;
         });
@@ -96,6 +99,34 @@ export function openDayDetail(dateKey) {
         html += '<div style="text-align:center; color:var(--text-muted); padding:30px;">Nothing scheduled for this day</div>';
     }
 
+    // Add Task / Reminder forms
+    html += `<div class="dd-section dd-add-section">
+        <div class="dd-section-title">&#10133; ADD</div>
+        <div class="dd-add-row">
+            <select id="ddAddType" class="dd-add-select">
+                <option value="task">Task</option>
+                <option value="reminder">Reminder</option>
+            </select>
+            <input type="text" id="ddAddText" class="dd-add-input" placeholder="Text..." onkeydown="if(event.key==='Enter') dayDetailAdd('${dateKey}')">
+            <select id="ddAddCategory" class="dd-add-select">
+                <option value="">Cat.</option>
+                <option value="Trading">Trading</option>
+                <option value="Dev">Dev</option>
+                <option value="IA">IA</option>
+                <option value="Bets">Bets</option>
+                <option value="Personal">Personal</option>
+                <option value="General">General</option>
+            </select>
+            <select id="ddAddPriority" class="dd-add-select">
+                <option value="">Prio.</option>
+                <option value="green">&#128994; Calm</option>
+                <option value="yellow">&#128993; Attention</option>
+                <option value="red">&#128308; Urgent</option>
+            </select>
+            <button class="dd-add-btn" onclick="dayDetailAdd('${dateKey}')">&#10148;</button>
+        </div>
+    </div>`;
+
     html += '</div>';
     content.innerHTML = html;
     modal.classList.add('active');
@@ -121,6 +152,45 @@ export async function dayDetailComplete(type, id, text, dateKey) {
 export async function dayDetailDelete(type, id, dateKey) {
     const endpoint = type === 'reminders' ? '/api/reminders' : '/api/tasks';
     await fetch(`${API}${endpoint}/${id}`, { method: 'DELETE' });
+    await Storage.refresh();
+    renderCalendar();
+    openDayDetail(dateKey);
+}
+
+export async function dayDetailAdd(dateKey) {
+    const type = document.getElementById('ddAddType')?.value || 'task';
+    const text = document.getElementById('ddAddText')?.value?.trim();
+    const category = document.getElementById('ddAddCategory')?.value || '';
+    const priority = document.getElementById('ddAddPriority')?.value || '';
+    if (!text) return;
+
+    const endpoint = type === 'reminder' ? '/api/reminders' : '/api/tasks';
+    const body = { text };
+    if (type === 'reminder') {
+        body.due_date = dateKey;
+    } else {
+        body.deadline = dateKey;
+    }
+    if (category) body.category = category;
+    if (priority) body.priority = priority;
+
+    await fetch(`${API}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    await Storage.refresh();
+    renderCalendar();
+    openDayDetail(dateKey);
+}
+
+export async function dayDetailToggle(type, id, done, dateKey) {
+    const endpoint = type === 'reminders' ? '/api/reminders' : '/api/tasks';
+    await fetch(`${API}${endpoint}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ done }),
+    });
     await Storage.refresh();
     renderCalendar();
     openDayDetail(dateKey);

@@ -32,7 +32,7 @@ function renderInboxList() {
     el.innerHTML = '';
 
     if (!items.length) {
-        el.innerHTML = '<div class="inbox-empty"><p>\u2705 Inbox vac\u00EDo. Todo procesado.</p></div>';
+        el.innerHTML = '<div class="inbox-empty"><p>\u2705 Post-it Area vac\u00EDa. Todo procesado.</p></div>';
         return;
     }
 
@@ -50,7 +50,7 @@ function createInboxItem(item, dimmed = false) {
 
     div.innerHTML = `
         <div class="inbox-item-content">
-            <div class="inbox-item-text">${item.text}</div>
+            <div class="inbox-item-text">\u{1F4CC} ${item.text}</div>
             <div class="inbox-item-meta">${timeAgo}</div>
         </div>
         <div class="inbox-item-actions">

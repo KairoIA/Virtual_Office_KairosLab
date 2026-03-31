@@ -217,7 +217,7 @@ const Storage = {
 
 // ── Normalize ────────────────────────────────────────
 function normalizeReminder(r) {
-    return { id: r.id, text: r.text, dueDate: r.due_date || '', done: r.done || false, created_at: r.created_at, project_id: r.project_id };
+    return { id: r.id, text: r.text, dueDate: r.due_date || '', done: r.done || false, created_at: r.created_at, project_id: r.project_id, category: r.category || null, priority: r.priority || null };
 }
 function normalizeTask(t) {
     return { id: t.id, text: t.text, done: t.done || false, deadline: t.deadline || null, category: t.category || null, priority: t.priority || null, createdAt: t.created_at, created_at: t.created_at, project_id: t.project_id };

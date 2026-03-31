@@ -64,7 +64,7 @@ router.get('/reminders', async (req, res) => {
 });
 
 router.post('/reminders', async (req, res) => {
-    const { text, due_date, due_time } = req.body;
+    const { text, due_date, due_time, category, priority, project_id } = req.body;
     const { data: maxPos } = await supabase
         .from('reminders')
         .select('position')
@@ -75,6 +75,9 @@ router.post('/reminders', async (req, res) => {
 
     const row = { text, due_date: due_date || null, position };
     if (due_time) row.due_time = due_time;
+    if (category) row.category = category;
+    if (priority) row.priority = priority;
+    if (project_id) row.project_id = project_id;
 
     const { data, error } = await supabase
         .from('reminders')
@@ -86,12 +89,14 @@ router.post('/reminders', async (req, res) => {
 });
 
 router.put('/reminders/:id', async (req, res) => {
-    const { text, done, position, due_time } = req.body;
+    const { text, done, position, due_time, category, priority } = req.body;
     const update = {};
     if (text !== undefined) update.text = text;
     if (done !== undefined) update.done = done;
     if (position !== undefined) update.position = position;
     if (due_time !== undefined) update.due_time = due_time || null;
+    if (category !== undefined) update.category = category;
+    if (priority !== undefined) update.priority = priority;
 
     const { data, error } = await supabase
         .from('reminders')

@@ -144,10 +144,10 @@
     border-top: 1px solid var(--border);
     display: flex;
     gap: 8px;
-    align-items: center;
+    align-items: flex-end;
     background: rgba(22, 27, 34, 0.5);
 }
-.assistant-input input {
+.assistant-input input, .assistant-input textarea {
     flex-grow: 1;
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--border);
@@ -157,12 +157,19 @@
     font-family: 'Rajdhani', sans-serif;
     font-size: 0.9rem;
 }
-.assistant-input input:focus {
+.assistant-input textarea {
+    resize: none;
+    overflow-y: auto;
+    max-height: 120px;
+    min-height: 38px;
+    line-height: 1.3;
+}
+.assistant-input input:focus, .assistant-input textarea:focus {
     border-color: var(--highlight);
     outline: none;
     box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
 }
-.assistant-input input::placeholder {
+.assistant-input input::placeholder, .assistant-input textarea::placeholder {
     color: var(--text-muted);
 }
 

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import supabase from '../db/supabase.js';
+import { processAIForDayPlan } from '../services/ai.js';
+import { executeFunction } from '../services/functionExecutor.js';
 const router = Router();
 
 // Get sessions for a date (default today)
@@ -49,6 +51,38 @@ router.delete('/clear/:date', async (req, res) => {
     const { error } = await supabase.from('day_sessions').delete().eq('date_key', req.params.date);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ cleared: true });
+});
+
+// Build day sessions using AI analysis
+router.post('/build', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+
+        // Step 1: Gather office state via buildDaySessions function
+        const analysis = await executeFunction('build_day_sessions', { date: today });
+        if (analysis.error) return res.status(500).json({ error: analysis.error });
+
+        // Step 2: Use AI to create optimal plan from analysis
+        const sessions = await processAIForDayPlan(analysis);
+        if (!sessions.length) return res.status(500).json({ error: 'AI did not generate any sessions' });
+
+        // Step 3: Clear today's sessions
+        await supabase.from('day_sessions').delete().eq('date_key', today);
+
+        // Step 4: Insert new sessions
+        const inserted = [];
+        for (const s of sessions) {
+            const row = { date_key: today, slot: s.slot, domain: s.domain, focus_text: s.focus_text, position: inserted.filter(i => i.slot === s.slot).length + 1 };
+            if (s.project_id) row.project_id = s.project_id;
+            const { data, error } = await supabase.from('day_sessions').insert(row).select('*, projects(name)').single();
+            if (!error && data) inserted.push(data);
+        }
+
+        res.json({ success: true, sessions: inserted });
+    } catch (err) {
+        console.error('[BUILD] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Update a session item

@@ -72,7 +72,16 @@ async function addReminder({ text, due_date, due_time, project_id, category, pri
 
     const row = { text, due_date: due_date || null, position: (maxPos?.position || 0) + 1 };
     if (due_time) row.due_time = due_time;
-    if (project_id) row.project_id = project_id;
+    if (project_id) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project_id);
+        if (isUUID) {
+            row.project_id = project_id;
+        } else {
+            const { data: projects } = await supabase.from('projects').select('id, name')
+                .ilike('name', `%${project_id}%`).limit(1);
+            if (projects?.length) row.project_id = projects[0].id;
+        }
+    }
     if (category) row.category = category;
     if (priority) row.priority = priority;
 
@@ -92,7 +101,19 @@ async function addTask({ text, deadline, project_id, category, priority }) {
 
     const row = { text, position: (maxPos?.position || 0) + 1 };
     if (deadline) row.deadline = deadline;
-    if (project_id) row.project_id = project_id;
+    if (project_id) {
+        // If not a UUID, try to find project by name
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project_id);
+        if (isUUID) {
+            row.project_id = project_id;
+        } else {
+            const { data: projects } = await supabase.from('projects').select('id, name')
+                .ilike('name', `%${project_id}%`).limit(1);
+            if (projects?.length) {
+                row.project_id = projects[0].id;
+            }
+        }
+    }
     if (category) row.category = category;
     if (priority) row.priority = priority;
 
@@ -1004,7 +1025,7 @@ async function getCompleted({ period, limit: maxItems, category, date_from, date
     };
 }
 
-async function editTask({ search_text, new_text, deadline, category, priority }) {
+async function editTask({ search_text, new_text, deadline, category, priority, project_id }) {
     const { data: items } = await supabase.from('tasks').select('*')
         .ilike('text', `%${search_text}%`).eq('done', false).limit(1);
     if (!items?.length) return { error: `No task found matching "${search_text}"` };
@@ -1014,6 +1035,25 @@ async function editTask({ search_text, new_text, deadline, category, priority })
     if (deadline !== undefined) update.deadline = deadline || null;
     if (category) update.category = category;
     if (priority) update.priority = priority;
+    if (project_id !== undefined) {
+        if (project_id === 'none' || project_id === '') {
+            update.project_id = null;
+        } else {
+            // If not a UUID, try to find project by name
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project_id);
+            if (isUUID) {
+                update.project_id = project_id;
+            } else {
+                const { data: projects } = await supabase.from('projects').select('id, name')
+                    .ilike('name', `%${project_id}%`).limit(1);
+                if (projects?.length) {
+                    update.project_id = projects[0].id;
+                } else {
+                    return { error: `Project "${project_id}" not found` };
+                }
+            }
+        }
+    }
 
     if (Object.keys(update).length === 0) return { error: 'Nothing to update' };
 
@@ -1082,7 +1122,16 @@ async function setDaySession({ slot, domain, project_id, focus_text, date }) {
         .order('position', { ascending: false }).limit(1).single();
 
     const row = { date_key: dateKey, slot, domain, position: (maxPos?.position || 0) + 1 };
-    if (project_id) row.project_id = project_id;
+    if (project_id) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project_id);
+        if (isUUID) {
+            row.project_id = project_id;
+        } else {
+            const { data: projects } = await supabase.from('projects').select('id, name')
+                .ilike('name', `%${project_id}%`).limit(1);
+            if (projects?.length) row.project_id = projects[0].id;
+        }
+    }
     if (focus_text) row.focus_text = focus_text;
 
     const { data, error } = await supabase
