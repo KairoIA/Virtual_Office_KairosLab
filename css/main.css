@@ -190,6 +190,7 @@ body {
 }
 .daily-quote-text { color: #b0b8c4; }
 .daily-quote-author { color: var(--highlight); margin-left: 6px; font-style: normal; font-size: 0.7rem; }
+.daily-quote-desc { color: #6e7681; font-style: italic; }
 
 /* Briefing spans full width */
 .hq-briefing { grid-column: 1 / -1; }

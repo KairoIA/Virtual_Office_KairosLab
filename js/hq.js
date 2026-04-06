@@ -54,7 +54,7 @@ function renderDate() {
         if (!quoteEl) return;
         const idx = getDayOfYear(d) % quotes.length;
         const q = quotes[idx];
-        quoteEl.innerHTML = `<span class="daily-quote-text">"${q.q}"</span><span class="daily-quote-author">— ${q.a}</span>`;
+        quoteEl.innerHTML = `<span class="daily-quote-text">"${q.q}"</span><span class="daily-quote-author">— ${q.a}${q.d ? '<span class="daily-quote-desc">, ' + q.d + '</span>' : ''}</span>`;
     });
 }
 
