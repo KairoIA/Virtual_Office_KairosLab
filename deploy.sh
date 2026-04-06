@@ -8,6 +8,8 @@ cd "$(dirname "$0")"
 MSG="${1:-"Update $(date +%Y-%m-%d_%H:%M)"}"
 
 echo "🔍 Running smoke test first..."
+node -e "require('dotenv').config({path:'backend/.env'})" 2>/dev/null
+export $(grep -E '^API_SECRET=' backend/.env | xargs)
 node backend/smoke-test.js
 if [ $? -ne 0 ]; then
     echo "❌ Smoke test failed. Fix errors before deploying."

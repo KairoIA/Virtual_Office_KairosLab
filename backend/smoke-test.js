@@ -5,6 +5,8 @@
  */
 
 const BASE = process.env.KAIROS_TEST_URL || 'http://localhost:3001';
+const API_KEY = process.env.API_SECRET || '';
+const AUTH_HEADERS = API_KEY ? { 'x-api-key': API_KEY } : {};
 
 const endpoints = [
     { method: 'GET',  path: '/api/tasks',        name: 'Tasks' },
@@ -29,7 +31,7 @@ async function run() {
 
     for (const ep of endpoints) {
         try {
-            const res = await fetch(`${BASE}${ep.path}`);
+            const res = await fetch(`${BASE}${ep.path}`, { headers: AUTH_HEADERS });
             if (res.ok) {
                 console.log(`  ✅ ${ep.name} (${ep.path}) — ${res.status}`);
                 passed++;
@@ -47,12 +49,12 @@ async function run() {
     try {
         const createRes = await fetch(`${BASE}/api/tasks`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
             body: JSON.stringify({ text: '__smoke_test__' }),
         });
         const task = await createRes.json();
         if (task?.id) {
-            await fetch(`${BASE}/api/tasks/${task.id}`, { method: 'DELETE' });
+            await fetch(`${BASE}/api/tasks/${task.id}`, { method: 'DELETE', headers: AUTH_HEADERS });
             console.log(`  ✅ Tasks CRUD (POST+DELETE) — OK`);
             passed++;
         } else {

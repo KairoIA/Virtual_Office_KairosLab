@@ -24,7 +24,7 @@ import daySessionsRouter from './routes/daySessions.js';
 import projectNotesRouter from './routes/projectNotes.js';
 import statsRouter from './routes/stats.js';
 import { handleVoiceSocket } from './services/voicePipeline.js';
-import { authMiddleware } from './middleware/auth.js';
+import { authMiddleware, getAuthStats } from './middleware/auth.js';
 import { startTelegramBot } from './services/telegram.js';
 import { startRecurringCron } from './services/recurringCron.js';
 import { startMorningBriefing } from './services/morningBriefing.js';
@@ -43,7 +43,7 @@ app.use(express.raw({ type: 'audio/*', limit: '25mb' }));
 
 // ── Health check ─────────────────────────────────────
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'kairos-backend', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'kairos-backend', timestamp: new Date().toISOString(), auth: getAuthStats() });
 });
 
 // ── REST Routes ──────────────────────────────────────
