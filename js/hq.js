@@ -22,6 +22,23 @@ export function renderHQ() {
     renderBriefing();
 }
 
+// ── Daily quote cache ────────────────────────────────
+let quotesCache = null;
+
+async function loadQuotes() {
+    if (quotesCache) return quotesCache;
+    try {
+        const res = await fetch('./data/quotes.json');
+        quotesCache = await res.json();
+    } catch { quotesCache = []; }
+    return quotesCache;
+}
+
+function getDayOfYear(d) {
+    const start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000);
+}
+
 function renderDate() {
     const el = document.getElementById('hqDate');
     if (!el) return;
@@ -29,6 +46,16 @@ function renderDate() {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     el.textContent = `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+
+    // Daily quote
+    loadQuotes().then(quotes => {
+        if (!quotes.length) return;
+        const quoteEl = document.getElementById('hqDailyQuote');
+        if (!quoteEl) return;
+        const idx = getDayOfYear(d) % quotes.length;
+        const q = quotes[idx];
+        quoteEl.innerHTML = `<span class="daily-quote-text">"${q.q}"</span><span class="daily-quote-author">— ${q.a}</span>`;
+    });
 }
 
 // ── DAY SESSIONS (4-block plan) ───────────────────────
