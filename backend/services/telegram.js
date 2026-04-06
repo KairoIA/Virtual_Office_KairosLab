@@ -108,7 +108,7 @@ export function startTelegramBot() {
     bot.onText(/\/pending/, async (msg) => {
         ensureChatId(msg);
         const { data } = await supabase.from('saved_content')
-            .select('*').eq('reviewed', false)
+            .select('title, topic, url').eq('reviewed', false)
             .order('created_at', { ascending: false }).limit(15);
 
         if (!data?.length) {

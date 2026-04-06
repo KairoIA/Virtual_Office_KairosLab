@@ -127,7 +127,7 @@ async function addTask({ text, deadline, project_id, category, priority }) {
 async function completeItem({ item_type, search_text }) {
     const table = item_type === 'reminder' ? 'reminders' : 'tasks';
     const { data: items } = await supabase
-        .from(table).select('*')
+        .from(table).select('id, text, created_at')
         .ilike('text', `%${search_text}%`)
         .eq('done', false)
         .limit(1);
@@ -285,10 +285,10 @@ async function getAgenda({ date }) {
 
     const [journalRes, remindersRes, tasksRes, planRes, projectsRes] = await Promise.all([
         supabase.from('journal').select('content').eq('date_key', today).single(),
-        supabase.from('reminders').select('*').eq('done', false).order('position'),
-        supabase.from('tasks').select('*').eq('done', false).order('position'),
-        supabase.from('daily_plan').select('*').eq('date_key', today).order('slot'),
-        supabase.from('projects').select('name, status, domain').eq('status', 'active').order('position'),
+        supabase.from('reminders').select('text, due_date, category, priority').eq('done', false).order('position'),
+        supabase.from('tasks').select('text, deadline, category, priority, project_id').eq('done', false).order('position'),
+        supabase.from('daily_plan').select('slot, text, category, priority, done').eq('date_key', today).order('slot'),
+        supabase.from('projects').select('name, domain, deadline').eq('status', 'active').order('position'),
     ]);
 
     const allReminders = remindersRes.data || [];
@@ -411,7 +411,7 @@ async function createProject({ name, domain, project_type, objective, deadline }
 
 async function updateProject({ search_name, status, project_type, objective, notes, deadline }) {
     const { data: projects } = await supabase
-        .from('projects').select('*')
+        .from('projects').select('id, name, project_type, notes')
         .ilike('name', `%${search_name}%`)
         .limit(1);
 
@@ -468,11 +468,11 @@ async function buildDailyPlan({ date }) {
     const tomorrow = new Date(new Date(today).getTime() + 86400000).toISOString().split('T')[0];
 
     const [remindersRes, tasksRes, projectsRes, contentRes, yesterdayPlanRes] = await Promise.all([
-        supabase.from('reminders').select('*').eq('done', false).order('position'),
-        supabase.from('tasks').select('*').eq('done', false).order('position'),
-        supabase.from('projects').select('*').eq('status', 'active').order('position'),
+        supabase.from('reminders').select('text, due_date, category, priority').eq('done', false).order('position'),
+        supabase.from('tasks').select('text, category, priority').eq('done', false).order('position'),
+        supabase.from('projects').select('name, domain, status').eq('status', 'active').order('position'),
         supabase.from('saved_content').select('id, title, topic').eq('reviewed', false).limit(5),
-        supabase.from('daily_plan').select('*').eq('date_key', new Date(new Date(today).getTime() - 86400000).toISOString().split('T')[0]).eq('done', false),
+        supabase.from('daily_plan').select('text, category').eq('date_key', new Date(new Date(today).getTime() - 86400000).toISOString().split('T')[0]).eq('done', false),
     ]);
 
     const allReminders = remindersRes.data || [];
@@ -500,7 +500,7 @@ async function buildDailyPlan({ date }) {
 
 async function movePlanItem({ search_text, new_date }) {
     const today = new Date().toISOString().split('T')[0];
-    const { data: items } = await supabase.from('daily_plan').select('*')
+    const { data: items } = await supabase.from('daily_plan').select('id, text, category, project_id, energy, priority, source')
         .eq('date_key', today).ilike('text', `%${search_text}%`).limit(1);
     if (!items?.length) return { error: `Plan item "${search_text}" not found for today` };
 
@@ -522,17 +522,17 @@ async function movePlanItem({ search_text, new_date }) {
 }
 
 async function getProjectDocs({ search_name }) {
-    const { data: projects } = await supabase.from('projects').select('*')
+    const { data: projects } = await supabase.from('projects').select('id, name, domain, status, objective, notes')
         .ilike('name', `%${search_name}%`).limit(1);
     if (!projects?.length) return { error: `Project "${search_name}" not found` };
     const project = projects[0];
 
     const [journalRes, notesRes, tasksRes, remindersRes, projNotesRes] = await Promise.all([
-        supabase.from('journal').select('date_key, content, category').eq('project_id', project.id).order('date_key', { ascending: false }).limit(20),
-        supabase.from('notes').select('*').eq('project_id', project.id).order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*').eq('project_id', project.id).order('position'),
-        supabase.from('reminders').select('*').eq('project_id', project.id).order('position'),
-        supabase.from('project_notes').select('*').eq('project_id', project.id).order('created_at', { ascending: false }).limit(20),
+        supabase.from('journal').select('date_key, content').eq('project_id', project.id).order('date_key', { ascending: false }).limit(20),
+        supabase.from('notes').select('text').eq('project_id', project.id).order('created_at', { ascending: false }),
+        supabase.from('tasks').select('text, done').eq('project_id', project.id).order('position'),
+        supabase.from('reminders').select('text, done, due_date').eq('project_id', project.id).order('position'),
+        supabase.from('project_notes').select('content, created_at').eq('project_id', project.id).order('created_at', { ascending: false }).limit(20),
     ]);
 
     return {
@@ -557,7 +557,7 @@ async function addNote({ text, category, project_id, color, pinned }) {
 }
 
 async function getNotes({ category, project_id }) {
-    let query = supabase.from('notes').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false });
+    let query = supabase.from('notes').select('text, category, pinned').order('pinned', { ascending: false }).order('created_at', { ascending: false });
     if (category) query = query.eq('category', category);
     if (project_id) query = query.eq('project_id', project_id);
     const { data } = await query.limit(30);
@@ -576,10 +576,10 @@ async function getBriefing() {
     const today = new Date().toISOString().split('T')[0];
 
     const [planRes, remindersRes, tasksRes, projectsRes, inboxRes, contentRes] = await Promise.all([
-        supabase.from('daily_plan').select('*').eq('date_key', today).order('slot'),
-        supabase.from('reminders').select('*').eq('done', false).order('position'),
-        supabase.from('tasks').select('*').eq('done', false).order('position'),
-        supabase.from('projects').select('*').neq('status', 'done').order('position'),
+        supabase.from('daily_plan').select('slot, text, category, priority, done').eq('date_key', today).order('slot'),
+        supabase.from('reminders').select('text, due_date, category, priority').eq('done', false).order('position'),
+        supabase.from('tasks').select('id').eq('done', false),
+        supabase.from('projects').select('name, domain, status').neq('status', 'done').order('position'),
         supabase.from('inbox').select('id').eq('processed', false),
         supabase.from('saved_content').select('id').eq('reviewed', false),
     ]);
@@ -676,7 +676,7 @@ async function getExpenses({ category, period }) {
             to = today.toISOString().split('T')[0];
     }
 
-    let query = supabase.from('expenses').select('*')
+    let query = supabase.from('expenses').select('concept, amount, category, date_key')
         .gte('date_key', from).lte('date_key', to)
         .order('date_key', { ascending: false });
 
@@ -727,7 +727,7 @@ async function recallMemory({ query }) {
     const terms = await expandQueryWithClaude(query);
     console.log(`[MEMORY] Expanded "${query}" → ${JSON.stringify(terms)}`);
     const orConds = terms.flatMap(t => [`key.ilike.%${t}%`, `value.ilike.%${t}%`, `category.ilike.%${t}%`]).join(',');
-    const { data } = await supabase.from('kaira_memory').select('*').or(orConds).limit(20);
+    const { data } = await supabase.from('kaira_memory').select('category, key, value').or(orConds).limit(20);
     if (!data?.length) return { results: [], message: 'No memories found' };
     return { results: data.map(m => `[${m.category}] ${m.key}: ${m.value}`) };
 }
@@ -764,7 +764,7 @@ async function manageList({ action, list_name, items, item_text }) {
         case 'get': {
             const { data: list } = await supabase.from('lists').select('id, name').eq('name', normalized).single();
             if (!list) return { error: `List "${normalized}" not found` };
-            const { data: listItems } = await supabase.from('list_items').select('*').eq('list_id', list.id).order('position');
+            const { data: listItems } = await supabase.from('list_items').select('text, done').eq('list_id', list.id).order('position');
             return {
                 list: normalized,
                 items: (listItems || []).map(i => `${i.done ? '✅' : '⬜'} ${i.text}`),
@@ -837,7 +837,7 @@ async function getActivitySummary({ category, period, search }) {
         default: from = `${today.getFullYear()}-01-01`; to = today.toISOString().split('T')[0];
     }
 
-    let query = supabase.from('activity_log').select('*').gte('date_key', from).lte('date_key', to).order('date_key', { ascending: false });
+    let query = supabase.from('activity_log').select('activity, category, date_key, notes').gte('date_key', from).lte('date_key', to).order('date_key', { ascending: false });
     if (category) query = query.ilike('category', `%${category}%`);
     if (search) query = query.ilike('activity', `%${search}%`);
 
@@ -866,7 +866,7 @@ async function saveContent({ title, url, topic, source, notes }) {
 }
 
 async function getSavedContent({ topic, only_unreviewed }) {
-    let query = supabase.from('saved_content').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('saved_content').select('title, topic, url, source, reviewed').order('created_at', { ascending: false });
     if (topic) query = query.ilike('topic', `%${topic}%`);
     if (only_unreviewed !== false) query = query.eq('reviewed', false);
     const { data } = await query.limit(20);
@@ -898,7 +898,7 @@ async function createRecurring({ text, frequency, day_of_week, day_of_month }) {
 }
 
 async function listRecurring() {
-    const { data } = await supabase.from('recurring_reminders').select('*').eq('active', true).order('created_at');
+    const { data } = await supabase.from('recurring_reminders').select('text, frequency, day_of_week, day_of_month, last_triggered').eq('active', true).order('created_at');
     if (!data?.length) return { recurring: [], message: 'No recurring reminders' };
     return {
         recurring: data.map(r => {
@@ -996,7 +996,7 @@ async function processInbox({ search_text, action }) {
 
 async function getCompleted({ period, limit: maxItems, category, date_from, date_to }) {
     const today = new Date().toISOString().split('T')[0];
-    let query = supabase.from('completed').select('*').order('completed_date', { ascending: false });
+    let query = supabase.from('completed').select('text, type, completed_date, duration').order('completed_date', { ascending: false });
 
     // Custom date range takes priority
     if (date_from && date_to) {
@@ -1026,7 +1026,7 @@ async function getCompleted({ period, limit: maxItems, category, date_from, date
 }
 
 async function editTask({ search_text, new_text, deadline, category, priority, project_id }) {
-    const { data: items } = await supabase.from('tasks').select('*')
+    const { data: items } = await supabase.from('tasks').select('id, text')
         .ilike('text', `%${search_text}%`).eq('done', false).limit(1);
     if (!items?.length) return { error: `No task found matching "${search_text}"` };
 
@@ -1062,7 +1062,7 @@ async function editTask({ search_text, new_text, deadline, category, priority, p
 }
 
 async function editReminder({ search_text, new_text, due_date, due_time, category, priority }) {
-    const { data: items } = await supabase.from('reminders').select('*')
+    const { data: items } = await supabase.from('reminders').select('id, text')
         .ilike('text', `%${search_text}%`).eq('done', false).limit(1);
     if (!items?.length) return { error: `No reminder found matching "${search_text}"` };
 
@@ -1145,7 +1145,7 @@ async function editDaySession({ search_text, slot, domain, focus_text, date }) {
     const dateKey = date || new Date().toISOString().split('T')[0];
 
     const { data: items } = await supabase
-        .from('day_sessions').select('*')
+        .from('day_sessions').select('id, focus_text')
         .eq('date_key', dateKey)
         .ilike('focus_text', `%${search_text}%`)
         .limit(1);
@@ -1166,7 +1166,7 @@ async function deleteDaySessionItem({ search_text, date }) {
     const dateKey = date || new Date().toISOString().split('T')[0];
 
     const { data: items } = await supabase
-        .from('day_sessions').select('*')
+        .from('day_sessions').select('id, slot, focus_text')
         .eq('date_key', dateKey)
         .ilike('focus_text', `%${search_text}%`)
         .limit(1);
@@ -1225,14 +1225,14 @@ async function getDaySessions({ date }) {
 async function buildDaySessions({ date }) {
     const today = date || new Date().toISOString().split('T')[0];
 
-    // Gather all office state
+    // Gather office state — minimal columns
     const [remindersRes, tasksRes, projectsRes, contentRes, inboxRes, yesterdayPlanRes] = await Promise.all([
-        supabase.from('reminders').select('*').eq('done', false).order('position'),
-        supabase.from('tasks').select('*').eq('done', false).order('position'),
-        supabase.from('projects').select('*').eq('status', 'active'),
+        supabase.from('reminders').select('text, due_date, category, priority').eq('done', false).order('position'),
+        supabase.from('tasks').select('text, category, priority').eq('done', false).order('position'),
+        supabase.from('projects').select('name, domain').eq('status', 'active'),
         supabase.from('saved_content').select('id, title, topic').eq('reviewed', false).limit(20),
-        supabase.from('inbox').select('*').eq('processed', false),
-        supabase.from('day_sessions').select('*').eq('date_key',
+        supabase.from('inbox').select('text').eq('processed', false),
+        supabase.from('day_sessions').select('focus_text, done').eq('date_key',
             new Date(new Date(today).getTime() - 86400000).toISOString().split('T')[0]),
     ]);
 
@@ -1310,7 +1310,7 @@ async function getProjectNotes({ search_name, limit }) {
     if (!projects?.length) return { error: `Project "${search_name}" not found` };
 
     const { data: notes } = await supabase.from('project_notes')
-        .select('*').eq('project_id', projects[0].id)
+        .select('content, created_at').eq('project_id', projects[0].id)
         .order('created_at', { ascending: false }).limit(limit || 10);
 
     if (!notes?.length) return { message: `No notes for project "${projects[0].name}" yet.` };

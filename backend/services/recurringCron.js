@@ -19,7 +19,7 @@ async function processRecurringReminders() {
     // Fetch all active recurring reminders
     const { data: recurrings, error } = await supabase
         .from('recurring_reminders')
-        .select('*')
+        .select('id, text, frequency, day_of_week, day_of_month, last_triggered')
         .eq('active', true);
 
     if (error) {

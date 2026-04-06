@@ -8,7 +8,7 @@
 import supabase from '../db/supabase.js';
 import { getBot, getBotChatId } from './telegram.js';
 
-const CHECK_INTERVAL = 60 * 1000; // 1 minute
+const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes (saves ~80% egress vs 1 min)
 
 // Kaira-style alert messages (paisa, cariñosa)
 const ALERT_TEMPLATES = [
@@ -41,26 +41,25 @@ async function checkAndAlert() {
     const today = spainNow.toISOString().split('T')[0];
     const nowMinutes = spainNow.getHours() * 60 + spainNow.getMinutes();
 
-    // Get reminders for today (or no date) that have a time set and alert not sent yet
+    // Get only today's reminders with due_time that haven't been alerted — minimal columns
     const { data: reminders, error } = await supabase
         .from('reminders')
-        .select('*')
+        .select('id, text, due_date, due_time')
         .eq('done', false)
         .eq('alert_sent', false)
-        .not('due_time', 'is', null);
+        .not('due_time', 'is', null)
+        .or(`due_date.eq.${today},due_date.is.null`);
 
     if (error || !reminders?.length) return;
 
     for (const rem of reminders) {
-        // Only alert for today's reminders (or reminders without date that have time)
-        if (rem.due_date && rem.due_date !== today) continue;
 
         // Parse due_time (HH:MM or HH:MM:SS)
         const [h, m] = rem.due_time.split(':').map(Number);
         const reminderMinutes = h * 60 + m;
         const diff = reminderMinutes - nowMinutes;
 
-        // Send alert when we're between 25-35 minutes before (window to catch the ~30 min mark)
+        // Send alert when we're between 25-35 minutes before (window covers 5-min polling cycle)
         if (diff >= 25 && diff <= 35) {
             const message = pickTemplate(rem.text);
             try {

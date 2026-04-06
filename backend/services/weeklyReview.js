@@ -92,42 +92,35 @@ async function gatherWeekData() {
         expensesRes,
         activityRes,
     ] = await Promise.all([
-        // Completed items in last 7 days
         supabase.from('completed')
-            .select('*')
+            .select('text, type, completed_date')
             .gte('completed_date', weekAgoStr)
             .order('completed_date', { ascending: false }),
 
-        // Overdue reminders still pending
         supabase.from('reminders')
-            .select('*')
+            .select('text, due_date, category')
             .eq('done', false)
             .lt('due_date', todayStr),
 
-        // Overdue tasks still pending
         supabase.from('tasks')
-            .select('*')
+            .select('text, deadline')
             .eq('done', false)
             .lt('deadline', todayStr),
 
-        // Tasks created this week
         supabase.from('tasks')
-            .select('*')
+            .select('id')
             .gte('created_at', weekAgo.toISOString()),
 
-        // Projects
         supabase.from('projects')
-            .select('*')
+            .select('name, domain, status, updated_at')
             .order('updated_at', { ascending: false }),
 
-        // Expenses this week
         supabase.from('expenses')
-            .select('*')
+            .select('amount, category')
             .gte('date', weekAgoStr),
 
-        // Activity log this week
         supabase.from('activity_log')
-            .select('*')
+            .select('activity, category, date_key')
             .gte('date_key', weekAgoStr)
             .order('date_key', { ascending: false }),
     ]);
@@ -172,18 +165,15 @@ async function gatherBehavioralData() {
         expensesLast4WeeksRes,
         overdueCountRes,
     ] = await Promise.all([
-        // Completed items last 30 days (for productivity patterns)
         supabase.from('completed')
-            .select('*')
+            .select('type, completed_date')
             .gte('completed_date', thirtyDaysAgoStr)
             .order('completed_date', { ascending: false }),
 
-        // Expenses last 4 weeks (for trend comparison)
         supabase.from('expenses')
-            .select('*')
+            .select('amount, date')
             .gte('date', fourWeeksAgoStr),
 
-        // All overdue items (habit of missing deadlines)
         supabase.from('reminders')
             .select('id')
             .eq('done', false)
@@ -411,46 +401,40 @@ async function gatherMonthData() {
         overdueRemindersRes,
         overdueTasksRes,
         tasksCreatedRes,
-        tasksAllRes,
         projectsRes,
         expensesRes,
         activityRes,
     ] = await Promise.all([
         supabase.from('completed')
-            .select('*')
+            .select('text, type, completed_date')
             .gte('completed_date', monthAgoStr)
             .order('completed_date', { ascending: false }),
 
         supabase.from('reminders')
-            .select('*')
+            .select('text, due_date')
             .eq('done', false)
             .lt('due_date', todayStr),
 
         supabase.from('tasks')
-            .select('*')
+            .select('text, deadline')
             .eq('done', false)
             .lt('deadline', todayStr),
 
-        // Tasks created in the last 30 days
+        // Tasks created in the last 30 days (removed duplicate query)
         supabase.from('tasks')
-            .select('*')
-            .gte('created_at', monthAgo.toISOString()),
-
-        // All tasks (for completed count)
-        supabase.from('tasks')
-            .select('*')
+            .select('id')
             .gte('created_at', monthAgo.toISOString()),
 
         supabase.from('projects')
-            .select('*')
+            .select('name, domain, status, updated_at')
             .order('updated_at', { ascending: false }),
 
         supabase.from('expenses')
-            .select('*')
+            .select('amount, category')
             .gte('date', monthAgoStr),
 
         supabase.from('activity_log')
-            .select('*')
+            .select('activity, category, date_key')
             .gte('date_key', monthAgoStr)
             .order('date_key', { ascending: false }),
     ]);
@@ -460,7 +444,6 @@ async function gatherMonthData() {
         overdueReminders: overdueRemindersRes.data || [],
         overdueTasks: overdueTasksRes.data || [],
         tasksCreated: tasksCreatedRes.data || [],
-        tasksAll: tasksAllRes.data || [],
         projects: projectsRes.data || [],
         expenses: expensesRes.data || [],
         activities: activityRes.data || [],
@@ -660,7 +643,7 @@ export async function generateBehavioralInsights() {
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
 
     const { data: completed } = await supabase.from('completed')
-        .select('*')
+        .select('type, completed_date')
         .gte('completed_date', thirtyDaysAgoStr)
         .order('completed_date', { ascending: false });
 

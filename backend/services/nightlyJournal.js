@@ -96,21 +96,19 @@ async function generateNightlyJournal() {
 async function gatherDayActivity(today) {
     const [
         completedRes, sessionsRes, projectsRes, tasksRes,
-        remindersRes, inboxRes, journalRes, notesRes,
-        expensesRes, contentRes, activityRes, projNotesRes
+        remindersRes, inboxRes, notesRes,
+        expensesRes, contentRes, activityRes
     ] = await Promise.all([
-        supabase.from('completed').select('*').eq('completed_date', today).order('created_at'),
-        supabase.from('day_sessions').select('*, projects(name)').eq('date_key', today).order('slot').order('position'),
-        supabase.from('projects').select('*').neq('status', 'done').order('position'),
-        supabase.from('tasks').select('*, projects:project_id(name)').order('position'),
-        supabase.from('reminders').select('*').order('position'),
-        supabase.from('inbox').select('*').eq('processed', true).gte('created_at', today + 'T00:00:00').order('created_at'),
-        supabase.from('journal').select('*').eq('date_key', today).single(),
-        supabase.from('project_notes').select('*, projects:project_id(name)').gte('created_at', today + 'T00:00:00').order('created_at'),
-        supabase.from('expenses').select('*').eq('date', today),
-        supabase.from('saved_content').select('*').gte('created_at', today + 'T00:00:00'),
-        supabase.from('activity_log').select('*').eq('date', today).order('created_at'),
-        supabase.from('project_notes').select('*, projects:project_id(name)').gte('created_at', today + 'T00:00:00'),
+        supabase.from('completed').select('text, type, completed_date').eq('completed_date', today).order('created_at'),
+        supabase.from('day_sessions').select('slot, domain, focus_text, done, projects(name)').eq('date_key', today).order('slot').order('position'),
+        supabase.from('projects').select('name, domain, status').neq('status', 'done'),
+        supabase.from('tasks').select('text, done, category').eq('done', false),
+        supabase.from('reminders').select('text, done, category').eq('done', false),
+        supabase.from('inbox').select('text').eq('processed', true).gte('created_at', today + 'T00:00:00'),
+        supabase.from('project_notes').select('content, projects:project_id(name)').gte('created_at', today + 'T00:00:00').order('created_at'),
+        supabase.from('expenses').select('concept, amount, category').eq('date', today),
+        supabase.from('saved_content').select('title, topic').gte('created_at', today + 'T00:00:00'),
+        supabase.from('activity_log').select('description, category').eq('date', today).order('created_at'),
     ]);
 
     const completed = completedRes.data || [];
@@ -118,24 +116,22 @@ async function gatherDayActivity(today) {
     const tasks = tasksRes.data || [];
     const reminders = remindersRes.data || [];
     const inbox = inboxRes.data || [];
-    const notes = notesRes.data || [];
+    const projNotes = notesRes.data || [];
     const expenses = expensesRes.data || [];
     const content = contentRes.data || [];
     const activity = activityRes.data || [];
-    const projNotes = projNotesRes.data || [];
 
     const hasActivity = completed.length > 0 || sessions.length > 0 ||
-        inbox.length > 0 || notes.length > 0 || activity.length > 0 ||
-        expenses.length > 0 || content.length > 0 || projNotes.length > 0;
+        inbox.length > 0 || projNotes.length > 0 || activity.length > 0 ||
+        expenses.length > 0 || content.length > 0;
 
     return {
         hasActivity,
         completed,
         sessions,
-        tasks: tasks.filter(t => !t.done),
-        reminders: reminders.filter(r => !r.done),
+        tasks,
+        reminders,
         inbox,
-        notes,
         expenses,
         content,
         activity,

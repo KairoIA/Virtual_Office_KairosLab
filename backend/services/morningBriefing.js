@@ -79,13 +79,13 @@ export async function sendMorningBriefing() {
         const endOfWeek = new Date(todayDate.getTime() + daysUntilSunday * 86400000).toISOString().split('T')[0];
 
         const [remindersRes, tasksRes, yesterdayPlanRes, projectsRes, inboxRes, contentRes, notesRes, recurringRes] = await Promise.all([
-            supabase.from('reminders').select('*').eq('done', false).order('position'),
-            supabase.from('tasks').select('*').eq('done', false).order('position'),
-            supabase.from('daily_plan').select('*').eq('date_key', yesterday).eq('done', false),
-            supabase.from('projects').select('*').neq('status', 'done').order('position'),
+            supabase.from('reminders').select('id, text, due_date, category, priority').eq('done', false).order('position'),
+            supabase.from('tasks').select('id, text, deadline, category, priority, project_id').eq('done', false).order('position'),
+            supabase.from('daily_plan').select('text').eq('date_key', yesterday).eq('done', false),
+            supabase.from('projects').select('id, name, domain, status, project_type').neq('status', 'done').order('position'),
             supabase.from('inbox').select('text').eq('processed', false).order('created_at', { ascending: false }),
-            supabase.from('saved_content').select('title, topic').eq('reviewed', false).order('created_at', { ascending: false }),
-            supabase.from('notes').select('text, category, pinned').order('created_at', { ascending: false }).limit(10),
+            supabase.from('saved_content').select('topic').eq('reviewed', false),
+            supabase.from('notes').select('text, category, pinned').eq('pinned', true).limit(10),
             supabase.from('recurring_reminders').select('text, frequency').eq('active', true),
         ]);
 
@@ -350,10 +350,10 @@ function registerCallbackHandlers() {
                 const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
                 const [remindersRes, yesterdayPlanRes, projectsRes, inboxRes] = await Promise.all([
-                    supabase.from('reminders').select('*').eq('done', false).order('due_date'),
-                    supabase.from('daily_plan').select('*').eq('date_key', yesterday).eq('done', false),
-                    supabase.from('projects').select('name, domain, status').eq('status', 'active'),
-                    supabase.from('inbox').select('text, created_at').eq('processed', false).order('created_at', { ascending: false }).limit(10),
+                    supabase.from('reminders').select('text, due_date, priority, category').eq('done', false).order('due_date'),
+                    supabase.from('daily_plan').select('text').eq('date_key', yesterday).eq('done', false),
+                    supabase.from('projects').select('name, domain').eq('status', 'active'),
+                    supabase.from('inbox').select('text').eq('processed', false).order('created_at', { ascending: false }).limit(10),
                 ]);
 
                 const reminders = remindersRes.data || [];

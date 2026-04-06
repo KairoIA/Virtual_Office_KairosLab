@@ -17,6 +17,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
+<script>
+// API auth — intercept all fetch calls to /api/ and add x-api-key header
+(function(){
+    const _fetch = window.fetch;
+    const K = '1dfdaee82abf5e97b04ffb0eebf176e5321f5c36d70663831e76ab3ae4e1274b';
+    window.fetch = function(url, opts) {
+        if (typeof url === 'string' && url.includes('/api/')) {
+            opts = opts || {};
+            opts.headers = Object.assign({}, opts.headers, { 'x-api-key': K });
+        }
+        return _fetch.call(this, url, opts);
+    };
+})();
+</script>
 </head>
 <body>
 
