@@ -4,7 +4,7 @@ module.exports = {
       name: 'kairos-backend',
       script: 'server.js',
       cwd: 'C:\\Users\\Administrator\\Desktop\\KairosLab_Virtual_Office\\backend',
-      env: { NODE_ENV: 'development' },
+      env: { NODE_ENV: 'production' },
       watch: false,
       autorestart: true,
       max_restarts: 10,
