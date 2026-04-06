@@ -1145,19 +1145,28 @@ button:hover, input[type="month"]:hover { border-color: var(--accent); backgroun
     .search-box input { width: 140px; }
     .search-box input:focus { width: 200px; }
 
-    .view { padding: 12px; }
+    .view { padding: 12px; overflow-x: hidden; }
     .hq-grid { grid-template-columns: 1fr; }
     .projects-grid { grid-template-columns: 1fr; }
     .projects-header { flex-direction: column; align-items: flex-start; }
     .btn-add-project { margin-left: 0; }
 
-    .calendar-grid { gap: 5px; }
-    .day-card { min-height: 80px; padding: 6px; }
-    .day-number { font-size: 0.9rem; }
-    .preview { -webkit-line-clamp: 2; font-size: 0.65rem; }
-    .cal-legend-item { font-size: 0.55rem; }
-    .cal-legend-proj { display: none; }
-    .cal-badge { font-size: 0.45rem; }
+    .calendar-wrapper { overflow-x: hidden; }
+    .calendar-grid { gap: 3px; }
+    .day-card { min-height: 52px; padding: 4px; border-radius: 5px; }
+    .day-top { margin-bottom: 2px; }
+    .day-name { font-size: 0.5rem; margin-right: 2px; }
+    .day-number { font-size: 0.8rem; }
+    .number-group { display: flex; align-items: baseline; flex-wrap: wrap; gap: 1px; }
+    .cal-day-header { font-size: 0.6rem; padding: 3px 0; }
+    .cal-legend { display: none; }
+    .cal-badge { font-size: 0.4rem; padding: 0 2px; margin-left: 1px; }
+    .preview { display: none; }
+    .dot-log { width: 5px; height: 5px; }
+    .day-card.is-today { border-width: 1.5px; }
+    .calendar-controls { gap: 6px; margin-bottom: 10px; }
+    .calendar-controls .nav-btn { padding: 6px 10px; font-size: 0.8rem; }
+    .calendar-controls input[type="month"] { padding: 6px 8px; font-size: 0.8rem; }
 
     .brand-sub { display: none; }
     .hq-section { padding: 12px; }
