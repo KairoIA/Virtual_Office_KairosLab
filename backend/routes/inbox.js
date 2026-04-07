@@ -12,7 +12,7 @@ const router = Router();
 router.get('/', async (req, res) => {
     const { data, error } = await supabase
         .from('inbox')
-        .select('*')
+        .select('id, text, processed, created_at')
         .order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);

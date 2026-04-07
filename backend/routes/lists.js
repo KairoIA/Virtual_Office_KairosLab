@@ -3,7 +3,7 @@ import supabase from '../db/supabase.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-    const { data, error } = await supabase.from('lists').select('*, list_items(*)').order('created_at');
+    const { data, error } = await supabase.from('lists').select('id, name, created_at, list_items(id, list_id, text, done, position)').order('created_at');
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 });

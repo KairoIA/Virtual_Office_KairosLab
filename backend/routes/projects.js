@@ -12,7 +12,7 @@ const router = Router();
 router.get('/', async (req, res) => {
     const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, name, domain, status, position, objective, notes, project_type, deadline, completed_at, created_at, updated_at')
         .order('position');
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
@@ -22,9 +22,9 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const [projectRes, tasksRes, remindersRes] = await Promise.all([
-        supabase.from('projects').select('*').eq('id', id).single(),
-        supabase.from('tasks').select('*').eq('project_id', id).order('position'),
-        supabase.from('reminders').select('*').eq('project_id', id).order('position'),
+        supabase.from('projects').select('id, name, domain, status, position, objective, notes, project_type, deadline, completed_at, created_at, updated_at').eq('id', id).single(),
+        supabase.from('tasks').select('id, text, done, position, deadline, category, priority, created_at').eq('project_id', id).order('position'),
+        supabase.from('reminders').select('id, text, due_date, due_time, category, priority, position, done, created_at').eq('project_id', id).order('position'),
     ]);
     if (projectRes.error) return res.status(404).json({ error: 'Project not found' });
     res.json({

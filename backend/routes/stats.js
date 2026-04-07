@@ -7,8 +7,16 @@ import supabase from '../db/supabase.js';
 
 const router = Router();
 
+// Cache stats for 5 minutes to reduce Supabase egress
+let statsCache = null;
+let statsCacheTime = 0;
+const STATS_CACHE_TTL = 5 * 60 * 1000;
+
 router.get('/', async (req, res) => {
     try {
+        if (statsCache && (Date.now() - statsCacheTime) < STATS_CACHE_TTL) {
+            return res.json(statsCache);
+        }
         const today = new Date().toISOString().split('T')[0];
         const todayDate = new Date(today);
 
@@ -124,7 +132,7 @@ router.get('/', async (req, res) => {
             temporal: projects.filter(p => p.project_type !== 'permanent').length,
         };
 
-        res.json({
+        const result = {
             completedByDay,
             completedByDomain,
             dayPlanRatio: { total: totalSessions, done: doneSessions },
@@ -135,7 +143,10 @@ router.get('/', async (req, res) => {
             tasksByCategory,
             projectSummary,
             pendingTasks: tasks.length,
-        });
+        };
+        statsCache = result;
+        statsCacheTime = Date.now();
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

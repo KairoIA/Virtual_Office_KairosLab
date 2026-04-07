@@ -4,7 +4,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
     const { category, project_id } = req.query;
-    let query = supabase.from('notes').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false });
+    let query = supabase.from('notes').select('id, text, category, pinned, color, project_id, created_at').order('pinned', { ascending: false }).order('created_at', { ascending: false });
     if (category) query = query.eq('category', category);
     if (project_id) query = query.eq('project_id', project_id);
     const { data, error } = await query.limit(50);

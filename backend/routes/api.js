@@ -13,9 +13,12 @@ const router = Router();
 // ═══════════════════════════════════════════════════════
 
 router.get('/journal', async (req, res) => {
+    // Only fetch last 90 days to limit egress (full content needed for search + calendar dots)
+    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
     const { data, error } = await supabase
         .from('journal')
-        .select('date_key, content');
+        .select('date_key, content')
+        .gte('date_key', cutoff);
     if (error) return res.status(500).json({ error: error.message });
 
     // Return as { "2026-03-26": "<html>", ... } for frontend compat
@@ -57,7 +60,7 @@ router.put('/journal/:dateKey', async (req, res) => {
 router.get('/reminders', async (req, res) => {
     const { data, error } = await supabase
         .from('reminders')
-        .select('*')
+        .select('id, text, due_date, due_time, category, priority, position, done, alert_sent, project_id, created_at')
         .order('position');
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
@@ -121,7 +124,7 @@ router.delete('/reminders/:id', async (req, res) => {
 router.get('/tasks', async (req, res) => {
     const { data, error } = await supabase
         .from('tasks')
-        .select('*')
+        .select('id, text, done, position, deadline, category, priority, project_id, created_at')
         .order('position');
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
@@ -185,7 +188,7 @@ router.delete('/tasks/:id', async (req, res) => {
 router.get('/completed', async (req, res) => {
     const { data, error } = await supabase
         .from('completed')
-        .select('*')
+        .select('id, text, type, duration, completed_date')
         .order('completed_date', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);

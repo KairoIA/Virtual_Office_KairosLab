@@ -124,20 +124,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initResizablePanel();
     initMobileKeyboardFix();
 
-    // When Kaira modifies data, refresh current view
+    // When Kaira modifies data, refresh only the active view (saves ~90% egress)
     setOnDataChanged(async () => {
         await Storage.refresh();
-        renderHQ();
-        renderCalendar();
-        renderReminders();
-        renderGenTasks();
-        renderProjects();
-        renderInbox();
-        renderLibrary();
-        renderStats();
-        renderJournalTab();
-        renderTasksView();
-        renderListsView();
+        refreshView(currentView);
     });
 
     // Register PWA service worker

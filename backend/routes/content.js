@@ -4,7 +4,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
     const { topic, reviewed } = req.query;
-    let query = supabase.from('saved_content').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('saved_content').select('id, title, url, topic, source, notes, reviewed, reviewed_at, created_at').order('created_at', { ascending: false });
     if (topic) query = query.ilike('topic', `%${topic}%`);
     if (reviewed !== undefined) query = query.eq('reviewed', reviewed === 'true');
     const { data, error } = await query.limit(50);

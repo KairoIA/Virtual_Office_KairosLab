@@ -4,7 +4,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
     const { category } = req.query;
-    let query = supabase.from('kaira_memory').select('*').order('updated_at', { ascending: false });
+    let query = supabase.from('kaira_memory').select('id, category, key, value, updated_at').order('updated_at', { ascending: false });
     if (category) query = query.eq('category', category);
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
@@ -13,16 +13,12 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     const { category, key, value } = req.body;
-    // Upsert by key
-    const { data: existing } = await supabase.from('kaira_memory').select('id').eq('key', key).limit(1);
-    let result;
-    if (existing?.length) {
-        result = await supabase.from('kaira_memory').update({ value, category }).eq('id', existing[0].id).select().single();
-    } else {
-        result = await supabase.from('kaira_memory').insert({ category: category || 'fact', key, value }).select().single();
-    }
-    if (result.error) return res.status(500).json({ error: result.error.message });
-    res.json(result.data);
+    const { data, error } = await supabase.from('kaira_memory')
+        .upsert({ category: category || 'fact', key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+        .select('id, category, key, value, updated_at')
+        .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
 });
 
 router.delete('/:id', async (req, res) => {

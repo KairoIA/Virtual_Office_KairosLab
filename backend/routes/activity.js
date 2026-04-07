@@ -4,7 +4,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
     const { category, from, to } = req.query;
-    let query = supabase.from('activity_log').select('*').order('date_key', { ascending: false });
+    let query = supabase.from('activity_log').select('id, activity, category, date_key, notes').order('date_key', { ascending: false });
     if (category) query = query.ilike('category', `%${category}%`);
     if (from) query = query.gte('date_key', from);
     if (to) query = query.lte('date_key', to);

@@ -6,7 +6,7 @@ const router = Router();
 router.get('/:projectId', async (req, res) => {
     const { data, error } = await supabase
         .from('project_notes')
-        .select('*')
+        .select('id, project_id, content, created_at')
         .eq('project_id', req.params.projectId)
         .order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });

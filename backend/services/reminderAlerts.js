@@ -8,7 +8,7 @@
 import supabase from '../db/supabase.js';
 import { getBot, getBotChatId } from './telegram.js';
 
-const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes (saves ~80% egress vs 1 min)
+const CHECK_INTERVAL = 60 * 60 * 1000; // 60 minutes (saves egress — alerts fire ~1h before due_time)
 
 // Kaira-style alert messages (paisa, cariñosa)
 const ALERT_TEMPLATES = [
@@ -59,8 +59,8 @@ async function checkAndAlert() {
         const reminderMinutes = h * 60 + m;
         const diff = reminderMinutes - nowMinutes;
 
-        // Send alert when we're between 25-35 minutes before (window covers 5-min polling cycle)
-        if (diff >= 25 && diff <= 35) {
+        // Send alert when we're between 0-65 minutes before (window covers 60-min polling cycle)
+        if (diff >= 0 && diff <= 65) {
             const message = pickTemplate(rem.text);
             try {
                 await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
@@ -75,7 +75,7 @@ async function checkAndAlert() {
 }
 
 export function startReminderAlerts() {
-    console.log('[ALERTS] Reminder alerts service started (checking every 60s)');
+    console.log('[ALERTS] Reminder alerts service started (checking every 60min)');
     // Initial check after 10 seconds (let Telegram bot initialize first)
     setTimeout(() => {
         checkAndAlert();
