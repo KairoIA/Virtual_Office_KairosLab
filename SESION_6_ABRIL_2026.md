@@ -101,3 +101,62 @@ bdc1ba0 feat: auth request counter on /health
 
 ## Modelo deprecated
 Los logs muestran que `claude-3-5-haiku-20241022` esta deprecated. Hay que actualizar a `claude-haiku-4-5-20251001` en `weeklyReview.js` (la referencia en `nightlyJournal.js` y `ai.js` ya usa el modelo correcto).
+
+---
+
+# Sesion 7 Abril 2026
+
+## Contexto
+Segundo aviso urgente de Supabase: grace period recortado al **9 de abril** (antes era 5 de mayo). 19.13 GB usados de 5.5 GB. Si no se actua, los servicios devuelven 402.
+
+## Diagnostico real
+
+### Lo que NO era el problema
+Las optimizaciones del 6-abr (auth middleware, select columns, reducir polling) protegieron el backend Express, pero **no cortaron la causa raiz**. El egress seguia a 3-4 GB/dia.
+
+### Causa raiz identificada
+Usando Query Performance de Supabase se descubrio que las tablas `projects`, `completed`, `tasks`, `reminders` y `activity_log` tenian **~1.27 millones de llamadas cada una** en 12 dias (~105,000/dia). Estas queries NO venian del backend (que solo generaba ~12 queries en 94 minutos de reposo).
+
+**Los bots/scrapers accedian directamente a la API REST de Supabase** (`qjuoncrjwqhtvrjdlemg.supabase.co/rest/v1/`) usando la **legacy anon JWT key** publica. La auth del backend Express no protegia este acceso directo.
+
+### Metodologia de diagnostico
+1. Exportar CSV de Query Performance → detectar volumen anomalo (millones de calls)
+2. Instrumentar `supabase.from()` con contador por tabla + endpoint `/api/egress-debug`
+3. Reset de pg_stat_statements + dejar backend en reposo 94 min → solo 12 queries
+4. Segundo reset + varias horas → confirmar que post-fix las queries bajaron a niveles normales
+
+## Cambios realizados
+
+### V10.2 — Optimizaciones de backend (commit 72129dd)
+- `reminderAlerts.js`: polling 5min → **60min** (288 → 24 queries/dia), ventana de alerta ajustada a 0-65 min
+- 10 rutas: `select('*')` → columnas especificas (api.js, projects.js, inbox.js, lists.js, memory.js, notes.js, content.js, activity.js, projectNotes.js)
+- `stats.js`: cache de 5 minutos (evita recalcular 7 queries en cada visita)
+- `memory.js`: N+1 query (select+update) → native `upsert()` (1 query)
+- `app.js`: `setOnDataChanged` refrescaba 11 vistas → solo refresca la vista activa
+- `api.js`: journal bulk fetch limitado a ultimos 90 dias
+
+### Fix definitivo — Desactivar legacy JWT keys
+1. Migrar `SUPABASE_SERVICE_KEY` de legacy JWT (`eyJ...`) a nueva secret key (`sb_secret_...`)
+2. Smoke test 14/14 OK con nueva key
+3. **Desactivar legacy JWT-based API keys** desde Supabase Dashboard → Settings → API Keys → "Disable JWT-based API keys"
+
+### Herramienta de debug
+- `backend/db/supabase.js`: wrapper sobre `supabase.from()` que cuenta queries por tabla
+- `backend/server.js`: middleware `trackRequest` + endpoint `/api/egress-debug` que muestra hits HTTP y queries Supabase con uptime
+
+## Resultado
+| Metrica | Antes | Despues |
+|---------|-------|---------|
+| Egress/dia | ~3.5 GB | **410 KB** |
+| Queries/dia a Supabase | ~105,000 | **~274** |
+| Reduccion | — | **99.99%** |
+
+## Commits
+```
+72129dd V10.2: Emergency egress optimization — target <5.5GB/month
+```
+
+## Estado
+- Problema **RESUELTO**. El egress acumulado (23.64 GB) no bajara, pero no crece mas.
+- Ciclo de facturacion se resetea el **26 de abril 2026**.
+- A ritmo actual (~410 KB/dia) no se alcanzara el limite de 5 GB en el proximo ciclo.

@@ -41,26 +41,44 @@ app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.raw({ type: 'audio/*', limit: '25mb' }));
 
+// ── API request counter (egress debug) ──────────────
+const apiHits = {};
+function trackRequest(req, res, next) {
+    const path = req.baseUrl + (req.path === '/' ? '' : req.path);
+    apiHits[path] = (apiHits[path] || 0) + 1;
+    next();
+}
+
 // ── Health check ─────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'kairos-backend', timestamp: new Date().toISOString(), auth: getAuthStats() });
 });
 
+app.get('/api/egress-debug', authMiddleware, async (req, res) => {
+    const { getQueryStats } = await import('./db/supabase.js');
+    const sorted = Object.entries(apiHits).sort((a, b) => b[1] - a[1]);
+    const uptime = Math.round(process.uptime() / 60);
+    res.json({
+        api_hits: { uptime_min: uptime, total: sorted.reduce((s, e) => s + e[1], 0), endpoints: Object.fromEntries(sorted) },
+        supabase_queries: getQueryStats(),
+    });
+});
+
 // ── REST Routes ──────────────────────────────────────
-app.use('/api', authMiddleware, apiRouter);
-app.use('/api/voice', authMiddleware, voiceRouter);
-app.use('/api/projects', authMiddleware, projectsRouter);
-app.use('/api/inbox', authMiddleware, inboxRouter);
-app.use('/api/top3', authMiddleware, top3Router);
-app.use('/api/expenses', authMiddleware, expensesRouter);
-app.use('/api/memory', authMiddleware, memoryRouter);
-app.use('/api/lists', authMiddleware, listsRouter);
-app.use('/api/activity', authMiddleware, activityRouter);
-app.use('/api/content', authMiddleware, contentRouter);
-app.use('/api/notes', authMiddleware, notesRouter);
-app.use('/api/day-sessions', authMiddleware, daySessionsRouter);
-app.use('/api/project-notes', authMiddleware, projectNotesRouter);
-app.use('/api/stats', authMiddleware, statsRouter);
+app.use('/api', authMiddleware, trackRequest, apiRouter);
+app.use('/api/voice', authMiddleware, trackRequest, voiceRouter);
+app.use('/api/projects', authMiddleware, trackRequest, projectsRouter);
+app.use('/api/inbox', authMiddleware, trackRequest, inboxRouter);
+app.use('/api/top3', authMiddleware, trackRequest, top3Router);
+app.use('/api/expenses', authMiddleware, trackRequest, expensesRouter);
+app.use('/api/memory', authMiddleware, trackRequest, memoryRouter);
+app.use('/api/lists', authMiddleware, trackRequest, listsRouter);
+app.use('/api/activity', authMiddleware, trackRequest, activityRouter);
+app.use('/api/content', authMiddleware, trackRequest, contentRouter);
+app.use('/api/notes', authMiddleware, trackRequest, notesRouter);
+app.use('/api/day-sessions', authMiddleware, trackRequest, daySessionsRouter);
+app.use('/api/project-notes', authMiddleware, trackRequest, projectNotesRouter);
+app.use('/api/stats', authMiddleware, trackRequest, statsRouter);
 
 // ── WebSocket for real-time voice ────────────────────
 const wss = new WebSocketServer({ server, path: '/ws/voice' });
