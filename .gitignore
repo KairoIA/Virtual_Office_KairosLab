@@ -6,6 +6,10 @@ node_modules/
 .DS_Store
 Thumbs.db
 backend/node_modules/
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
 Voz_paisa.mp3
 Voz_paisa.wav
 *.mp3
