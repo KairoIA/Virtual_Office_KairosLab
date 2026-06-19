@@ -7,7 +7,7 @@ router.get('/', async (req, res) => {
     let query = supabase.from('saved_content').select('id, title, url, topic, source, notes, reviewed, reviewed_at, created_at').order('created_at', { ascending: false });
     if (topic) query = query.ilike('topic', `%${topic}%`);
     if (reviewed !== undefined) query = query.eq('reviewed', reviewed === 'true');
-    const { data, error } = await query.limit(50);
+    const { data, error } = await query.limit(100);
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 });
