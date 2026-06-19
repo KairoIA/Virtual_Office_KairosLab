@@ -11,6 +11,30 @@ import { getBot, getBotChatId } from './telegram.js';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+async function safeSendMarkdown(bot, chatId, message) {
+    try {
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    } catch (err) {
+        const msg = err?.response?.body?.description || err?.message || '';
+        if (msg.includes("can't parse entities") || msg.includes('parse entities')) {
+            console.warn('[REVIEW] Markdown parse failed, retrying as plain text');
+            await bot.sendMessage(chatId, message);
+        } else {
+            throw err;
+        }
+    }
+}
+
+async function upsertMemory({ category, key, value }) {
+    const payload = { category, key, value, updated_at: new Date().toISOString() };
+    const { data: existing } = await supabase.from('kaira_memory')
+        .select('id').eq('category', category).eq('key', key).maybeSingle();
+    const { error } = existing
+        ? await supabase.from('kaira_memory').update(payload).eq('id', existing.id)
+        : await supabase.from('kaira_memory').insert(payload);
+    if (error) console.error(`[MEMORY] Could not persist ${category}/${key}:`, error.message);
+}
+
 // ── Schedule ────────────────────────────────────────
 
 export function startWeeklyReview() {
@@ -64,11 +88,16 @@ function scheduleNextMonthlyReview() {
     const delayMin = Math.round(delay / 60000);
     const targetDateStr = target.toISOString().split('T')[0];
 
-    setTimeout(async () => {
-        await generateMonthlyReview();
-        // After running, recalculate for next month
-        scheduleNextMonthlyReview();
-    }, delay);
+    // Node.js setTimeout overflows at 2^31-1 ms (~24.8 days); chunk into safe intervals
+    const MAX_DELAY = 2000000000; // ~23 days
+    if (delay > MAX_DELAY) {
+        setTimeout(() => scheduleNextMonthlyReview(), MAX_DELAY);
+    } else {
+        setTimeout(async () => {
+            await generateMonthlyReview();
+            scheduleNextMonthlyReview();
+        }, delay);
+    }
 
     console.log(`[MONTHLY] Review scheduled. Next run in ${delayMin} min (${targetDateStr} 20:00 CET)`);
 }
@@ -316,7 +345,7 @@ Items vencidos sin completar: ${behavioralData.overdueItemsCount}
 
         // Send to Claude Haiku
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-haiku-20241022',
+            model: 'claude-haiku-4-5-20251001',
             max_tokens: 1500,
             messages: [{
                 role: 'user',
@@ -369,12 +398,11 @@ Keep it under 800 words. Use emojis sparingly for section headers only.`,
             const fullMessage = header + reviewText;
 
             if (fullMessage.length <= 4096) {
-                await bot.sendMessage(chatId, fullMessage, { parse_mode: 'Markdown' });
+                await safeSendMarkdown(bot, chatId, fullMessage);
             } else {
-                // Split into chunks
                 const chunks = splitMessage(fullMessage, 4096);
                 for (const chunk of chunks) {
-                    await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+                    await safeSendMarkdown(bot, chatId, chunk);
                 }
             }
             console.log('[WEEKLY] Sent to Telegram');
@@ -550,7 +578,7 @@ Items vencidos sin completar: ${behavioralData.overdueItemsCount}
 
         // Send to Claude
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-haiku-20241022',
+            model: 'claude-haiku-4-5-20251001',
             max_tokens: 2500,
             messages: [{
                 role: 'user',
@@ -604,11 +632,11 @@ Keep it under 1200 words. Use emojis sparingly for section headers only.`,
             const fullMessage = header + reviewText;
 
             if (fullMessage.length <= 4096) {
-                await bot.sendMessage(chatId, fullMessage, { parse_mode: 'Markdown' });
+                await safeSendMarkdown(bot, chatId, fullMessage);
             } else {
                 const chunks = splitMessage(fullMessage, 4096);
                 for (const chunk of chunks) {
-                    await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+                    await safeSendMarkdown(bot, chatId, chunk);
                 }
             }
             console.log('[MONTHLY] Sent to Telegram');
@@ -696,28 +724,12 @@ export async function generateBehavioralInsights() {
 
     // ── Persist insights to kaira_memory ──────────────
     try {
-        // Save full insights object
-        await supabase.from('kaira_memory').upsert(
-            { category: 'learning', key: 'behavioral_insights', value: JSON.stringify(insights) },
-            { onConflict: 'category,key' }
-        );
-
-        // Save specific individual memories
+        await upsertMemory({ category: 'learning', key: 'behavioral_insights', value: JSON.stringify(insights) });
         await Promise.all([
-            supabase.from('kaira_memory').upsert(
-                { category: 'learning', key: 'most_productive_day', value: `El jefe es más productivo los ${dayNames[topDay[0]]}` },
-                { onConflict: 'category,key' }
-            ),
-            supabase.from('kaira_memory').upsert(
-                { category: 'learning', key: 'most_active_category', value: `La categoría más activa es ${topCategory[0]}` },
-                { onConflict: 'category,key' }
-            ),
-            supabase.from('kaira_memory').upsert(
-                { category: 'learning', key: 'avg_tasks_per_week', value: `Completa una media de ${avgTasksPerWeek} tareas por semana` },
-                { onConflict: 'category,key' }
-            ),
+            upsertMemory({ category: 'learning', key: 'most_productive_day', value: `El jefe es más productivo los ${dayNames[topDay[0]]}` }),
+            upsertMemory({ category: 'learning', key: 'most_active_category', value: `La categoría más activa es ${topCategory[0]}` }),
+            upsertMemory({ category: 'learning', key: 'avg_tasks_per_week', value: `Completa una media de ${avgTasksPerWeek} tareas por semana` }),
         ]);
-
         console.log('[BEHAVIORAL] Insights persisted to kaira_memory');
     } catch (err) {
         console.error('[BEHAVIORAL] Error persisting insights:', err.message || err);

@@ -25,6 +25,22 @@ router.post('/', async (req, res) => {
     res.json(data);
 });
 
+// Edit a note
+router.put('/:id', async (req, res) => {
+    const { content } = req.body;
+    if (typeof content !== 'string' || !content.trim()) {
+        return res.status(400).json({ error: 'content is required' });
+    }
+    const { data, error } = await supabase
+        .from('project_notes')
+        .update({ content: content.trim() })
+        .eq('id', req.params.id)
+        .select()
+        .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+});
+
 // Delete a note
 router.delete('/:id', async (req, res) => {
     const { error } = await supabase.from('project_notes').delete().eq('id', req.params.id);

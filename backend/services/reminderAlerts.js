@@ -47,8 +47,8 @@ async function checkAndAlert() {
         .select('id, text, due_date, due_time')
         .eq('done', false)
         .eq('alert_sent', false)
-        .not('due_time', 'is', null)
-        .or(`due_date.eq.${today},due_date.is.null`);
+        .or(`due_date.eq.${today},due_date.is.null`)
+        .not('due_time', 'is', null);
 
     if (error || !reminders?.length) return;
 

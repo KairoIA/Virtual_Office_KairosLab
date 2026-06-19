@@ -188,17 +188,23 @@ router.delete('/tasks/:id', async (req, res) => {
 router.get('/completed', async (req, res) => {
     const { data, error } = await supabase
         .from('completed')
-        .select('id, text, type, duration, completed_date')
+        .select('id, text, type, duration, completed_date, category, project_id, projects(name, domain)')
         .order('completed_date', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 });
 
 router.post('/completed', async (req, res) => {
-    const { text, type, duration } = req.body;
+    const { text, type, duration, category, project_id } = req.body;
     const { data, error } = await supabase
         .from('completed')
-        .insert({ text, type, duration: duration || '' })
+        .insert({
+            text,
+            type,
+            duration: duration || '',
+            category: category || null,
+            project_id: project_id || null,
+        })
         .select()
         .single();
     if (error) return res.status(500).json({ error: error.message });

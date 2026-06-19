@@ -3,61 +3,72 @@
  * Sends Telegram digest with deadlines, overdue, unfinished tasks, projects status
  */
 
+import cron from 'node-cron';
 import supabase from '../db/supabase.js';
 import { getBot, getBotChatId } from './telegram.js';
 import { executeFunction } from './functionExecutor.js';
 
-let briefingInterval = null;
-let briefingSentToday = null; // track date of last sent briefing
+const LAST_SENT_KEY = 'briefing_last_sent';
+
+function getTodayMadrid() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' }))
+        .toISOString().split('T')[0];
+}
+
+function getSpainHour(date = new Date()) {
+    return new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Madrid' })).getHours();
+}
+
+async function loadLastSent() {
+    try {
+        const { data } = await supabase
+            .from('kaira_memory').select('value')
+            .eq('key', LAST_SENT_KEY).single();
+        return data?.value || null;
+    } catch {
+        return null;
+    }
+}
+
+async function saveLastSent(dateStr) {
+    const payload = {
+        category: 'system',
+        key: LAST_SENT_KEY,
+        value: dateStr,
+        updated_at: new Date().toISOString(),
+    };
+    const { data: existing } = await supabase
+        .from('kaira_memory').select('id')
+        .eq('key', LAST_SENT_KEY).maybeSingle();
+    const { error } = existing
+        ? await supabase.from('kaira_memory').update(payload).eq('id', existing.id)
+        : await supabase.from('kaira_memory').insert(payload);
+    if (error) console.error('[BRIEFING] Could not persist last_sent:', error.message);
+}
 
 export function startMorningBriefing() {
-    const now = new Date();
-    const spainHour = getSpainHour(now);
+    // Daily cron at 08:00 Madrid time — survives restarts
+    cron.schedule('0 8 * * *', () => sendMorningBriefing(), { timezone: 'Europe/Madrid' });
+    console.log('[BRIEFING] Cron scheduled at 08:00 Europe/Madrid (daily)');
 
-    // Schedule next 08:00 Spain time
-    const msUntilNext8 = getMsUntilNext8AM();
-    console.log(`[BRIEFING] Next morning briefing in ${Math.round(msUntilNext8 / 60000)} minutes`);
+    // On restart between 08:00–22:00: send catch-up briefing only if not already sent today
+    setTimeout(async () => {
+        const today = getTodayMadrid();
+        const hour = getSpainHour();
+        const lastSent = await loadLastSent();
 
-    setTimeout(() => {
-        sendMorningBriefing();
-        // Then every 24h
-        briefingInterval = setInterval(sendMorningBriefing, 24 * 60 * 60 * 1000);
-    }, msUntilNext8);
-
-    // On restart after 8 AM: send briefing only if not already sent today
-    const todayStr = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' })).toISOString().split('T')[0];
-    if (spainHour >= 8 && spainHour < 22 && briefingSentToday !== todayStr) {
-        console.log('[BRIEFING] Running startup briefing (Spain hour:', spainHour, ')');
-        setTimeout(() => sendMorningBriefing(), 8000); // 8s delay to let bot + chatId initialize
-    }
+        if (lastSent === today) {
+            console.log(`[BRIEFING] Already sent today (${today}), skipping startup briefing`);
+        } else if (hour >= 8 && hour < 22) {
+            console.log(`[BRIEFING] Running catch-up briefing (Spain hour: ${hour})`);
+            sendMorningBriefing();
+        } else {
+            console.log(`[BRIEFING] Outside catch-up window (Spain hour: ${hour}), waiting for 08:00 cron`);
+        }
+    }, 8000); // 8s delay to let bot + chatId initialize
 
     // Register callback query handler after a short delay
     setTimeout(() => registerCallbackHandlers(), 3000);
-}
-
-function getSpainHour(date) {
-    // Spain is UTC+1 (CET) or UTC+2 (CEST)
-    // Simple approach: use Intl to get actual Spain time
-    const spainTime = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-    return spainTime.getHours();
-}
-
-function getMsUntilNext8AM() {
-    const now = new Date();
-    // Get current time in Spain
-    const spainNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-    const spainHour = spainNow.getHours();
-    const spainMinute = spainNow.getMinutes();
-
-    let hoursUntil8;
-    if (spainHour < 8) {
-        hoursUntil8 = 8 - spainHour;
-    } else {
-        hoursUntil8 = 24 - spainHour + 8; // next day
-    }
-
-    const msUntil = (hoursUntil8 * 60 - spainMinute) * 60 * 1000;
-    return msUntil > 0 ? msUntil : 24 * 60 * 60 * 1000; // fallback to 24h
 }
 
 export async function sendMorningBriefing() {
@@ -67,6 +78,14 @@ export async function sendMorningBriefing() {
     if (!bot || !chatId) {
         console.log('[BRIEFING] Bot or chat ID not available yet, retrying in 60s...');
         setTimeout(() => sendMorningBriefing(), 60000);
+        return;
+    }
+
+    // Idempotency guard — don't send twice the same day
+    const todayMadrid = getTodayMadrid();
+    const lastSent = await loadLastSent();
+    if (lastSent === todayMadrid) {
+        console.log(`[BRIEFING] Already sent today (${todayMadrid}), aborting`);
         return;
     }
 
@@ -282,8 +301,8 @@ export async function sendMorningBriefing() {
             reply_markup: keyboard,
         });
 
-        briefingSentToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' })).toISOString().split('T')[0];
-        console.log('[BRIEFING] Morning briefing sent');
+        await saveLastSent(todayMadrid);
+        console.log(`[BRIEFING] Morning briefing sent (${todayMadrid})`);
     } catch (err) {
         console.error('[BRIEFING] Error sending morning briefing:', err.message);
     }

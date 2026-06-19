@@ -32,7 +32,7 @@ router.get('/', async (req, res) => {
             tasksRes, projectsRes, completed30Res
         ] = await Promise.all([
             // This week completed
-            supabase.from('completed').select('text, type, completed_date, category')
+            supabase.from('completed').select('text, type, completed_date, category, project_id, projects(name, domain)')
                 .gte('completed_date', days7ago).order('completed_date'),
             // Previous week completed (for comparison)
             supabase.from('completed').select('completed_date')
@@ -122,6 +122,21 @@ router.get('/', async (req, res) => {
             tasksByCategory[cat] = (tasksByCategory[cat] || 0) + 1;
         });
 
+        // === Completed this week by category ===
+        const completedByCategory = {};
+        completed.forEach(c => {
+            const cat = c.category || 'General';
+            completedByCategory[cat] = (completedByCategory[cat] || 0) + 1;
+        });
+
+        // === Completed this week by project ===
+        const completedByProject = {};
+        completed.forEach(c => {
+            if (!c.projects?.name) return;
+            const key = c.projects.name;
+            completedByProject[key] = (completedByProject[key] || 0) + 1;
+        });
+
         // === Projects summary ===
         const projectSummary = {
             active: projects.filter(p => p.status === 'active').length,
@@ -141,6 +156,8 @@ router.get('/', async (req, res) => {
             domainHours,
             streak,
             tasksByCategory,
+            completedByCategory,
+            completedByProject,
             projectSummary,
             pendingTasks: tasks.length,
         };

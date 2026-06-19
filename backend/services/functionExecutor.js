@@ -127,7 +127,7 @@ async function addTask({ text, deadline, project_id, category, priority }) {
 async function completeItem({ item_type, search_text }) {
     const table = item_type === 'reminder' ? 'reminders' : 'tasks';
     const { data: items } = await supabase
-        .from(table).select('id, text, created_at')
+        .from(table).select('id, text, created_at, category, project_id')
         .ilike('text', `%${search_text}%`)
         .eq('done', false)
         .limit(1);
@@ -147,6 +147,8 @@ async function completeItem({ item_type, search_text }) {
         text: item.text,
         type: item_type === 'reminder' ? 'Reminder' : 'Task',
         duration,
+        category: item.category || null,
+        project_id: item.project_id || null,
     });
 
     return { success: true, message: `Completed: "${item.text}"` };

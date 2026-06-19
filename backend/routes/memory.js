@@ -13,10 +13,14 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     const { category, key, value } = req.body;
-    const { data, error } = await supabase.from('kaira_memory')
-        .upsert({ category: category || 'fact', key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
-        .select('id, category, key, value, updated_at')
-        .single();
+    const payload = { category: category || 'fact', key, value, updated_at: new Date().toISOString() };
+    const { data: existing } = await supabase.from('kaira_memory')
+        .select('id').eq('key', key).maybeSingle();
+    const { data, error } = existing
+        ? await supabase.from('kaira_memory').update(payload).eq('id', existing.id)
+            .select('id, category, key, value, updated_at').single()
+        : await supabase.from('kaira_memory').insert(payload)
+            .select('id, category, key, value, updated_at').single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 });

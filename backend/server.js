@@ -32,6 +32,11 @@ import { startWeeklyReview, startMonthlyReview } from './services/weeklyReview.j
 import { startReminderAlerts } from './services/reminderAlerts.js';
 import { startMidnightCron } from './services/midnightCron.js';
 import { startNightlyJournal } from './services/nightlyJournal.js';
+import { startKeepAlive } from './services/keepAlive.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const server = http.createServer(app);
@@ -80,6 +85,10 @@ app.use('/api/day-sessions', authMiddleware, trackRequest, daySessionsRouter);
 app.use('/api/project-notes', authMiddleware, trackRequest, projectNotesRouter);
 app.use('/api/stats', authMiddleware, trackRequest, statsRouter);
 
+// ── Serve frontend static files ─────────────────────
+const frontendDir = path.join(__dirname, '..');
+app.use(express.static(frontendDir, { extensions: ['html'], maxAge: 0, etag: false }));
+
 // ── WebSocket for real-time voice ────────────────────
 const wss = new WebSocketServer({ server, path: '/ws/voice' });
 wss.on('connection', (ws) => {
@@ -101,4 +110,5 @@ server.listen(PORT, () => {
     startReminderAlerts();
     startMidnightCron();
     startNightlyJournal();
+    startKeepAlive();
 });

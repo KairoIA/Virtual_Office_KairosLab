@@ -4,7 +4,7 @@
  * Returns exit code 0 if all pass, 1 if any fail
  */
 
-const BASE = process.env.KAIROS_TEST_URL || 'http://localhost:3001';
+const BASE = process.env.KAIROS_TEST_URL || 'http://localhost:5500';
 const API_KEY = process.env.API_SECRET || '';
 const AUTH_HEADERS = API_KEY ? { 'x-api-key': API_KEY } : {};
 
