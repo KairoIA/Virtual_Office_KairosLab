@@ -5,7 +5,7 @@
 
 import { Storage } from './storage.js';
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 let currentFilter = 'all';
 let showCompletedProjects = false;
 
@@ -236,10 +236,12 @@ async function loadProjectNotes(projectId) {
 
         list.innerHTML = notes.map(n => {
             const date = new Date(n.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-            return `<div class="pn-item">
+            const contentEsc = (n.content || '').replace(/"/g, '&quot;');
+            return `<div class="pn-item" data-note-id="${n.id}">
                 <span class="pn-date">${date}</span>
-                <span class="pn-text">${n.content}</span>
-                <button class="pn-del" onclick="deleteProjectNote('${n.id}', '${projectId}')">\u2716</button>
+                <span class="pn-text" style="cursor:pointer;" onclick="editProjectNote('${n.id}', '${projectId}')" title="Click para editar" data-original="${contentEsc}">${n.content}</span>
+                <button class="pn-del" onclick="editProjectNote('${n.id}', '${projectId}')" title="Editar">\u270e</button>
+                <button class="pn-del" onclick="deleteProjectNote('${n.id}', '${projectId}')" title="Borrar">\u2716</button>
             </div>`;
         }).join('');
     } catch {
@@ -262,6 +264,34 @@ export async function addProjectNote(projectId) {
 
 export async function deleteProjectNote(noteId, projectId) {
     await fetch(`${API}/api/project-notes/${noteId}`, { method: 'DELETE' });
+    loadProjectNotes(projectId);
+}
+
+export async function editProjectNote(noteId, projectId) {
+    const list = document.getElementById(`pnList-${projectId}`);
+    if (!list) return;
+    const item = list.querySelector(`[data-note-id="${noteId}"]`);
+    if (!item) return;
+    const textSpan = item.querySelector('.pn-text');
+    const original = textSpan?.dataset.original || textSpan?.textContent || '';
+
+    item.innerHTML = `
+        <input type="text" class="pn-input" id="pnEdit-${noteId}" value="${original.replace(/"/g, '&quot;')}" style="flex:1;" onkeydown="if(event.key==='Enter') saveProjectNoteEdit('${noteId}', '${projectId}'); if(event.key==='Escape') loadProjectNotes('${projectId}');">
+        <button class="pn-add-btn" onclick="saveProjectNoteEdit('${noteId}', '${projectId}')">OK</button>
+        <button class="pn-del" onclick="loadProjectNotes('${projectId}')" title="Cancelar">✖</button>
+    `;
+    const input = document.getElementById(`pnEdit-${noteId}`);
+    if (input) { input.focus(); input.select(); }
+}
+
+export async function saveProjectNoteEdit(noteId, projectId) {
+    const input = document.getElementById(`pnEdit-${noteId}`);
+    if (!input || !input.value.trim()) return;
+    await fetch(`${API}/api/project-notes/${noteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: input.value.trim() }),
+    });
     loadProjectNotes(projectId);
 }
 
@@ -332,6 +362,8 @@ export async function addProjectTask(projectId) {
     input.value = '';
     if (deadlineInput) deadlineInput.value = '';
     loadProjectTasks(projectId);
+    await Storage.refresh();
+    rerenderTaskViews();
 }
 
 export async function toggleProjectTask(taskId, done, projectId, taskText) {
@@ -346,6 +378,7 @@ export async function toggleProjectTask(taskId, done, projectId, taskText) {
     }
     await Storage.refresh();
     loadProjectTasks(projectId);
+    rerenderTaskViews();
 }
 
 export async function editProjectTask(taskId, projectId) {
@@ -385,9 +418,19 @@ export async function saveProjectTaskEdit(taskId, projectId) {
         body: JSON.stringify(body),
     });
     loadProjectTasks(projectId);
+    await Storage.refresh();
+    rerenderTaskViews();
 }
 
 export async function deleteProjectTask(taskId, projectId) {
     await fetch(`${API}/api/tasks/${taskId}`, { method: 'DELETE' });
     loadProjectTasks(projectId);
+    await Storage.refresh();
+    rerenderTaskViews();
+}
+
+// Re-render views that show task lists (radar, calendar, tasks tab)
+// after a project task changes — keeps cache and UI in sync.
+function rerenderTaskViews() {
+    window.dispatchEvent(new CustomEvent('kairos:tasks-changed'));
 }

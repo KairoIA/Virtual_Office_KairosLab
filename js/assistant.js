@@ -3,7 +3,7 @@
  * Chat + Voice interface — REST only (reliable through Cloudflare Tunnel)
  */
 
-const API_BASE = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API_BASE = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 // Callback to refresh UI after Kaira modifies data
 let onDataChanged = null;

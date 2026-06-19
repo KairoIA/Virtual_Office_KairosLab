@@ -6,7 +6,7 @@
 import { Storage } from './storage.js';
 import { renderReminders } from './tasks.js';
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 export function initHQ() {
     const buildBtn = document.getElementById('btnBuildSessions');

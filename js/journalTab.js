@@ -5,7 +5,7 @@
 
 import { Storage } from './storage.js';
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 let currentDateKey = '';
 

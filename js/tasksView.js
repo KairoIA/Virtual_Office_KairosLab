@@ -6,7 +6,7 @@
 import { Storage } from './storage.js';
 import { renderCalendar } from './calendar.js';
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 let currentFilter = 'all';
 let showCompleted = false;
 

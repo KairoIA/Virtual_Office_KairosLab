@@ -3,7 +3,7 @@
  * Shows all lists (shopping, packing, custom) with CRUD
  */
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 export function initListsView() {
     // Bind add-list button

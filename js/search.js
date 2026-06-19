@@ -6,7 +6,7 @@
 import { Storage }      from './storage.js';
 import { jumpToDate }   from './calendar.js';
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 // Cache notes so we don't fetch on every keystroke
 let notesCache = null;

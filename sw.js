@@ -3,7 +3,7 @@
  * Enables PWA install + offline caching of static assets
  */
 
-const CACHE_NAME = 'kairos-v2';
+const CACHE_NAME = 'kairos-v3';
 const STATIC_ASSETS = [
     './',
     './index.html',

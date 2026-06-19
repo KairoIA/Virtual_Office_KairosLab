@@ -3,7 +3,7 @@
  * Saved content from Telegram / Kaira — organized by topic
  */
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 let currentTopic = 'all';
 let showReviewed = false;
 

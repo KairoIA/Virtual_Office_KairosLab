@@ -12,7 +12,7 @@ import { initSearch }         from './search.js';
 import { Storage }            from './storage.js';
 import { connectVoice, sendTextMessage, toggleRecording, toggleRecordingVoice, toggleRecordingText, setOnDataChanged } from './assistant.js';
 import { initHQ, renderHQ, toggleSessionDone, clearSession, addSessionItem, editSessionItem, saveSessionEdit } from './hq.js';
-import { initProjects, renderProjects, openProjectModal, closeProjectModal, saveProjectFromModal, editProject, toggleProjectStatus, completeProject, deleteProject, toggleProjectNotes, addProjectNote, deleteProjectNote, toggleProjectTasks, loadProjectTasks, addProjectTask, toggleProjectTask, editProjectTask, saveProjectTaskEdit, deleteProjectTask } from './projects.js';
+import { initProjects, renderProjects, openProjectModal, closeProjectModal, saveProjectFromModal, editProject, toggleProjectStatus, completeProject, deleteProject, toggleProjectNotes, addProjectNote, deleteProjectNote, editProjectNote, saveProjectNoteEdit, toggleProjectTasks, loadProjectTasks, addProjectTask, toggleProjectTask, editProjectTask, saveProjectTaskEdit, deleteProjectTask } from './projects.js';
 import { initInbox, renderInbox, captureToInbox, processInboxItem, deleteInboxItem } from './inbox.js';
 import { initLibrary, renderLibrary, markLibraryReviewed, deleteLibraryItem } from './library.js';
 import { initStats, renderStats } from './stats.js';
@@ -109,6 +109,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTasksView();
     initListsView();
     connectVoice();
+
+    // When project tasks change, refresh radar/calendar/tasks-view so new
+    // deadlines appear without requiring a hard reload.
+    window.addEventListener('kairos:tasks-changed', () => {
+        renderHQ();
+        renderCalendar();
+        renderTasksView();
+    });
 
     // Swipe gesture navigation
     const tabOrder = ['hq', 'projects', 'tasksview', 'listsview', 'calendar', 'inbox', 'library', 'journal', 'stats'];
@@ -385,6 +393,8 @@ window.deleteProject        = deleteProject;
 window.toggleProjectNotes   = toggleProjectNotes;
 window.addProjectNote       = addProjectNote;
 window.deleteProjectNote    = deleteProjectNote;
+window.editProjectNote      = editProjectNote;
+window.saveProjectNoteEdit  = saveProjectNoteEdit;
 window.toggleProjectTasks   = toggleProjectTasks;
 window.loadProjectTasks     = loadProjectTasks;
 window.addProjectTask       = addProjectTask;

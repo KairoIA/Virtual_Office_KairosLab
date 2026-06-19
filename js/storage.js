@@ -4,7 +4,7 @@
  * Now includes: journal, reminders, tasks, completed, projects, inbox, top3
  */
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 let cache = {
     journal: {},

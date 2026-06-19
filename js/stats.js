@@ -5,7 +5,7 @@
 
 import { Storage } from './storage.js';
 
-const API = window.KAIROS_API_URL || 'https://www.kairoslaboffice.trade';
+const API = window.KAIROS_API_URL || 'https://kairoslaboffice.trade';
 
 const DOMAIN_COLORS = {
     Trading: '#22c55e', Dev: '#58a6ff', Bets: '#d29922',
