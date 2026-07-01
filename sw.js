@@ -3,7 +3,7 @@
  * Enables PWA install + offline caching of static assets
  */
 
-const CACHE_NAME = 'kairos-v3';
+const CACHE_NAME = 'kairos-v4';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -45,8 +45,12 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Always revalidate JS/CSS/HTML against the network so deploys land
+    // immediately — Cloudflare puts a 4h browser cache on static assets and a
+    // plain reload would otherwise keep serving the stale files. Fall back to
+    // the cache only when offline.
     event.respondWith(
-        fetch(event.request)
+        fetch(event.request, { cache: 'no-cache' })
             .then((response) => {
                 const clone = response.clone();
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
