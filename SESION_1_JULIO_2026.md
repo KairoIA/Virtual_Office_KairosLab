@@ -49,20 +49,42 @@ El popup `briefingDetail` renderiza via innerHTML, asi que los anchors funcionan
 - `app.js`: `from './hq.js?v=5'` (antes sin versionar) + `from './library.js?v=5'`
 - `sw.js`: `CACHE_NAME = 'kairos-v5'` (purga caches viejas de la PWA en activate)
 
-## Verificacion (en vivo, navegador limpio via Playwright contra kairoslaboffice.trade)
+## Verificacion ronda 2 (en vivo, navegador limpio via Playwright contra kairoslaboffice.trade)
 - Popup HQ Watch Later: **72/72 items con `<a class="detail-link">`**, target=_blank, primer link → Instagram OK.
 - Tab Watch Later: 72/72 titulos como `<a class="library-title-link">`, subrayado computado `underline`.
 - `curl` confirma que produccion sirve v=5 en index.html, hq.js con el fix, css con ambos estilos, sw kairos-v5.
 - Confirmado por Javi: "arreglado".
 
+## Ronda 3 — Botones ✔ visto / ✖ eliminar en el popup HQ (v=6)
+
+Javi pide poder marcar como visto/estudiado y eliminar los watch laters desde donde los consulta (el popup HQ; el tab library ya tenia ambos botones desde siempre).
+
+### Implementacion (`js/hq.js`)
+- Cada fila del popup ahora es `<span class="detail-wl" data-id="...">` con el link + dos botones: `✔` (title "Visto y estudiado", verde) → `hqWatchLaterReviewed(id, this)` y `✖` (title "Eliminar", rojo) → `hqWatchLaterDelete(id, this)`.
+- Nuevas funciones exportadas `hqWatchLaterReviewed` (PUT `/api/content/:id` `{reviewed:true}`) y `hqWatchLaterDelete` (DELETE `/api/content/:id`), expuestas en `window.*` desde app.js (mismo patron que el resto).
+- Helper `removeWatchLaterRow(id, btn)`: quita la fila del DOM **sin cerrar el popup ni perder el scroll**, y sincroniza en sitio: stat num del briefing, header del popup `Watch Later (n)`, badge `libraryCount` del nav, y el array en memoria `briefingStatData` (module-level, seteado en renderBriefing) para que reabrir el popup no resucite items ya procesados.
+- CSS: `.detail-wl` flex space-between, `.detail-wl-text` con overflow-wrap, `.detail-wl-actions` no-shrink. Reusa `.action-btn` existente.
+
+### Versionado
+v=6 en cadena: index.html (main.css, assistant.css, app.js), import `hq.js?v=6` en app.js, `sw.js` → `kairos-v6`.
+
+### Verificacion ronda 3 (en vivo)
+- 72/72 filas con link + ambos botones.
+- Test real del flujo ✔ sobre el primer item: fila desaparece, stat 72→71, header "Watch Later (71)", badge nav 71. Item de prueba revertido despues via API (`reviewed:false`) → 72 pendientes, datos intactos.
+- El boton ✖ usa el mismo helper (no se testeo con datos reales por ser destructivo; endpoint DELETE es el mismo que usa el tab desde siempre).
+
+## Backup GitHub
+`bash deploy.sh "Watch Later: links + botones visto/eliminar en popup HQ briefing (v6) + fix links tab (v5) + doc sesion"` → smoke test 14/14 passed → commit `ec561d8` → push a origin/main OK.
+
 ## Archivos modificados
 | Archivo | Cambio |
 |---|---|
-| `js/hq.js` | Items Watch Later del briefing como anchors cuando hay url |
-| `css/main.css` | +`.detail-link`, `.library-title-link` subrayado siempre |
-| `js/app.js` | Import hq.js versionado (antes sin `?v=`), library.js → v=5 |
-| `index.html` | css/app.js → v=5 |
-| `sw.js` | `kairos-v5` |
+| `js/hq.js` | Items Watch Later del briefing como anchors + botones ✔/✖ + handlers hqWatchLaterReviewed/Delete + sync de contadores |
+| `css/main.css` | +`.detail-link`, +`.detail-wl*` (layout filas popup), `.library-title-link` subrayado siempre |
+| `js/app.js` | Import hq.js versionado (antes sin `?v=`), exposicion window.hqWatchLater*, versiones → v=6 |
+| `index.html` | css/app.js → v=6 |
+| `sw.js` | `kairos-v6` |
+| `SESION_1_JULIO_2026.md` | Este doc |
 
 ## Lecciones
 1. **Watch Later se renderiza en DOS sitios:** tab library (`library.js`) + popup briefing HQ (`hq.js`). Cualquier cambio de formato/renderizado de saved_content hay que aplicarlo en ambos.
@@ -71,7 +93,6 @@ El popup `briefingDetail` renderiza via innerHTML, asi que los anchors funcionan
 4. Cuando "el fix no funciona" pero curl demuestra que produccion esta bien → buscar OTRO punto de renderizado antes que culpar a la cache.
 
 ## Pendiente
-- Commit + push de los 5 archivos: `bash deploy.sh "fix watch later links en HQ briefing + v5"`
 - Cloudflare → Caching → Browser Cache TTL → "Respect Existing Headers" (fix permanente de la cache de 4h; eliminaria la necesidad del versionado manual)
 - Versionar los demas imports ESM de app.js la proxima vez que se toquen esos modulos
 - Corregir PATH de pm2 en `startup_kairos.bat` (falla en reset del servidor)
