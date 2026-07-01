@@ -14,7 +14,7 @@ import { connectVoice, sendTextMessage, toggleRecording, toggleRecordingVoice, t
 import { initHQ, renderHQ, toggleSessionDone, clearSession, addSessionItem, editSessionItem, saveSessionEdit } from './hq.js';
 import { initProjects, renderProjects, openProjectModal, closeProjectModal, saveProjectFromModal, editProject, toggleProjectStatus, completeProject, deleteProject, toggleProjectNotes, addProjectNote, deleteProjectNote, editProjectNote, saveProjectNoteEdit, toggleProjectTasks, loadProjectTasks, addProjectTask, toggleProjectTask, editProjectTask, saveProjectTaskEdit, deleteProjectTask } from './projects.js';
 import { initInbox, renderInbox, captureToInbox, processInboxItem, deleteInboxItem } from './inbox.js';
-import { initLibrary, renderLibrary, markLibraryReviewed, deleteLibraryItem } from './library.js';
+import { initLibrary, renderLibrary, markLibraryReviewed, deleteLibraryItem } from './library.js?v=4';
 import { initStats, renderStats } from './stats.js';
 import { initJournalTab, renderJournalTab, saveJournalFromTab, deleteJournal, selectJournalDate, editJournalEntry, deleteJournalEntry } from './journalTab.js';
 import { initSwipe }              from './swipe.js';
