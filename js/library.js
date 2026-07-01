@@ -57,9 +57,9 @@ export async function renderLibrary() {
                         <span class="library-date">${getTimeAgo(item.created_at)}</span>
                     </div>
                     ${item.url
-                        ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="library-title library-title-link" onclick="openExternal(event, this.href)">\u{1F517} ${item.title}</a>`
+                        ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="library-title library-title-link">\u{1F517} ${item.title}</a>`
                         : `<div class="library-title">${item.title}</div>`}
-                    ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="library-url" onclick="openExternal(event, this.href)">${item.url}</a>` : ''}
+                    ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="library-url">${item.url}</a>` : ''}
                     ${item.notes ? `<div class="library-notes">${item.notes}</div>` : ''}
                 </div>
                 <div class="library-actions">
@@ -155,7 +155,7 @@ async function renderReviewedHistory() {
                         <div class="tv-item-meta">
                             <span class="library-topic topic-${item.topic}">${item.topic}</span>
                             <span style="font-size:0.7rem; color:var(--text-muted);">${item.source || ''}</span>
-                            ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" onclick="openExternal(event, this.href)" style="font-size:0.7rem; color:var(--accent); text-decoration:underline;">link</a>` : ''}
+                            ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" style="font-size:0.7rem; color:var(--accent); text-decoration:underline;">link</a>` : ''}
                         </div>
                     </div>
                 </div>`;
