@@ -412,6 +412,14 @@ window.deleteInboxItem   = deleteInboxItem;
 window.markLibraryReviewed = markLibraryReviewed;
 window.deleteLibraryItem   = deleteLibraryItem;
 
+// Open external links reliably (target="_blank" is unreliable inside a
+// standalone PWA — force the open and fall back to same-tab navigation).
+window.openExternal = function (e, url) {
+    if (e) e.preventDefault();
+    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!w) window.location.href = url;
+};
+
 // Lists
 window.toggleListItem    = toggleListItem;
 window.removeListItem    = removeListItem;

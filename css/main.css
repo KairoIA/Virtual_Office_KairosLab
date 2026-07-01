@@ -747,12 +747,14 @@ body {
 
 .library-source { font-size: 0.75rem; color: var(--text-muted); }
 .library-date { font-size: 0.7rem; color: var(--text-muted); margin-left: auto; }
-.library-title { font-family: 'Roboto Mono', monospace; font-size: 0.88rem; margin-bottom: 4px; }
+.library-title { font-family: 'Roboto Mono', monospace; font-size: 0.88rem; margin-bottom: 4px; display: block; }
+.library-title-link { color: var(--accent); text-decoration: none; }
+.library-title-link:hover { text-decoration: underline; }
 .library-url {
-    font-size: 0.75rem; color: var(--accent); text-decoration: none;
+    font-size: 0.75rem; color: var(--text-muted); text-decoration: underline;
     word-break: break-all; display: block; margin-bottom: 4px;
 }
-.library-url:hover { text-decoration: underline; }
+.library-url:hover { color: var(--accent); }
 .library-notes { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
 .library-actions { display: flex; flex-direction: column; gap: 4px; }
 
