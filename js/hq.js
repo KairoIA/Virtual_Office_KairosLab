@@ -352,6 +352,8 @@ function renderProjectLoad() {
 }
 
 // ── Briefing ────────────────────────────────────────
+let briefingStatData = null;
+
 async function renderBriefing() {
     const el = document.getElementById('hqBriefingContent');
     if (!el) return;
@@ -401,7 +403,12 @@ async function renderBriefing() {
         const wlRes = await fetch(`${API}/api/content?reviewed=false`);
         const wlData = await wlRes.json();
         if (Array.isArray(wlData)) {
-            watchLaterItems = wlData.map(c => `\u{1F4FA} [${c.topic}] ${c.title}`);
+            watchLaterItems = wlData.map(c => {
+                const title = c.url
+                    ? `<a href="${c.url}" target="_blank" rel="noopener noreferrer" class="detail-link">\u{1F517} ${c.title}</a>`
+                    : c.title;
+                return `<span class="detail-wl" data-id="${c.id}"><span class="detail-wl-text">\u{1F4FA} [${c.topic}] ${title}</span><span class="detail-wl-actions"><button onclick="hqWatchLaterReviewed('${c.id}', this)" class="action-btn" title="Visto y estudiado" style="color:var(--success);">✔</button><button onclick="hqWatchLaterDelete('${c.id}', this)" class="action-btn" title="Eliminar" style="color:var(--danger);">✖</button></span></span>`;
+            });
         }
     } catch { /* ignore */ }
 
@@ -420,6 +427,7 @@ async function renderBriefing() {
         { num: inbox.length, label: 'Post-it', cls: severityCls(inbox.length), items: inbox.map(i => `\u{1F4CC} ${i.text}`) },
         { num: watchLaterItems.length, label: 'Watch Later', cls: severityCls(watchLaterItems.length), items: watchLaterItems },
     ];
+    briefingStatData = statData;
 
     let html = '<div class="briefing-stats">';
     statData.forEach((s, i) => {
@@ -457,4 +465,47 @@ async function renderBriefing() {
             detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
         };
     });
+}
+
+// ── Watch Later actions (briefing detail popup) ─────
+export async function hqWatchLaterReviewed(id, btn) {
+    await fetch(`${API}/api/content/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewed: true }),
+    });
+    removeWatchLaterRow(id, btn);
+}
+
+export async function hqWatchLaterDelete(id, btn) {
+    await fetch(`${API}/api/content/${id}`, { method: 'DELETE' });
+    removeWatchLaterRow(id, btn);
+}
+
+function removeWatchLaterRow(id, btn) {
+    const row = btn.closest('.detail-item');
+    if (row) row.remove();
+
+    // Keep the in-memory stat data in sync so reopening the popup doesn't resurrect the item
+    const wl = briefingStatData ? briefingStatData.find(s => s.label === 'Watch Later') : null;
+    if (wl) {
+        wl.items = wl.items.filter(item => !item.includes(`data-id="${id}"`));
+        wl.num = wl.items.length;
+    }
+
+    document.querySelectorAll('#hqBriefingContent .stat').forEach(statEl => {
+        const label = statEl.querySelector('.stat-label');
+        if (wl && label && label.textContent === 'Watch Later') {
+            statEl.querySelector('.stat-num').textContent = wl.num;
+        }
+    });
+    const header = document.querySelector('#briefingDetail .detail-header');
+    if (wl && header && header.textContent.startsWith('Watch Later')) {
+        header.textContent = `Watch Later (${wl.num})`;
+    }
+    const badge = document.getElementById('libraryCount');
+    if (wl && badge) {
+        badge.textContent = wl.num;
+        badge.style.display = wl.num > 0 ? 'inline-flex' : 'none';
+    }
 }

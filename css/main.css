@@ -235,6 +235,10 @@ body {
     white-space: pre-line; line-height: 1.4;
 }
 .detail-item:hover { background: rgba(255,255,255,0.05); }
+.detail-link { color: var(--accent); text-decoration: underline; }
+.detail-wl { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.detail-wl-text { min-width: 0; overflow-wrap: anywhere; }
+.detail-wl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .detail-empty { color: var(--text-muted); font-size: 0.8rem; font-style: italic; }
 
 /* ── Tasks View ─────────────────────────────────── */
@@ -748,8 +752,7 @@ body {
 .library-source { font-size: 0.75rem; color: var(--text-muted); }
 .library-date { font-size: 0.7rem; color: var(--text-muted); margin-left: auto; }
 .library-title { font-family: 'Roboto Mono', monospace; font-size: 0.88rem; margin-bottom: 4px; display: block; }
-.library-title-link { color: var(--accent); text-decoration: none; }
-.library-title-link:hover { text-decoration: underline; }
+.library-title-link { color: var(--accent); text-decoration: underline; }
 .library-url {
     font-size: 0.75rem; color: var(--text-muted); text-decoration: underline;
     word-break: break-all; display: block; margin-bottom: 4px;

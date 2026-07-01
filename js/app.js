@@ -11,10 +11,10 @@ import { renderReminders, renderGenTasks } from './tasks.js';
 import { initSearch }         from './search.js';
 import { Storage }            from './storage.js';
 import { connectVoice, sendTextMessage, toggleRecording, toggleRecordingVoice, toggleRecordingText, setOnDataChanged } from './assistant.js';
-import { initHQ, renderHQ, toggleSessionDone, clearSession, addSessionItem, editSessionItem, saveSessionEdit } from './hq.js';
+import { initHQ, renderHQ, toggleSessionDone, clearSession, addSessionItem, editSessionItem, saveSessionEdit, hqWatchLaterReviewed, hqWatchLaterDelete } from './hq.js?v=6';
 import { initProjects, renderProjects, openProjectModal, closeProjectModal, saveProjectFromModal, editProject, toggleProjectStatus, completeProject, deleteProject, toggleProjectNotes, addProjectNote, deleteProjectNote, editProjectNote, saveProjectNoteEdit, toggleProjectTasks, loadProjectTasks, addProjectTask, toggleProjectTask, editProjectTask, saveProjectTaskEdit, deleteProjectTask } from './projects.js';
 import { initInbox, renderInbox, captureToInbox, processInboxItem, deleteInboxItem } from './inbox.js';
-import { initLibrary, renderLibrary, markLibraryReviewed, deleteLibraryItem } from './library.js?v=4';
+import { initLibrary, renderLibrary, markLibraryReviewed, deleteLibraryItem } from './library.js?v=5';
 import { initStats, renderStats } from './stats.js';
 import { initJournalTab, renderJournalTab, saveJournalFromTab, deleteJournal, selectJournalDate, editJournalEntry, deleteJournalEntry } from './journalTab.js';
 import { initSwipe }              from './swipe.js';
@@ -381,6 +381,8 @@ window.clearSession      = clearSession;
 window.addSessionItem    = addSessionItem;
 window.editSessionItem   = editSessionItem;
 window.saveSessionEdit   = saveSessionEdit;
+window.hqWatchLaterReviewed = hqWatchLaterReviewed;
+window.hqWatchLaterDelete   = hqWatchLaterDelete;
 
 // Projects
 window.openProjectModal     = openProjectModal;
